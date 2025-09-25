@@ -7,3 +7,4 @@ class UserState(TypedDict):
     surname: str
     age: int
     birth_date: date
+    message: str  # Новое поле для хранения сообщения пользователю
