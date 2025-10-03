@@ -4,12 +4,14 @@ import logging
 from src.bot.commands import set_commands
 from src.core.config import configure_logging, bot, dp
 from src.bot.handlers.start import router as start_router
+from src.bot.handlers.chat_member import router as chat_member_router
 
 
 configure_logging(logging.INFO)
 logger = logging.getLogger(__name__)
 
 dp.include_router(start_router)
+dp.include_router(chat_member_router)
 
 
 async def main():

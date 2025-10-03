@@ -1,8 +1,6 @@
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
-
-from src.core.config import bot
 
 
 router = Router()
@@ -17,7 +15,7 @@ async def cmd_start(message: Message):
 
 # Получение ID группы
 @router.message(Command("group_id"))
-async def group_info(message: Message):
+async def group_info(message: Message, bot: Bot):
     chat_info = (
         f"📊 <b>Информация о чате:</b>\n"
         f"🆔 <b>ID чата:</b> <code>{message.chat.id}</code>\n"
