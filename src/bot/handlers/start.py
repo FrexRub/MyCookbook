@@ -23,16 +23,16 @@ async def group_info(message: Message):
         f"🆔 <b>ID чата:</b> <code>{message.chat.id}</code>\n"
         f"📝 <b>Тип чата:</b> {message.chat.type}\n"
         f"👥 <b>Название:</b> {message.chat.title if message.chat.title else 'Личный чат'}\n"
-        f"👤 <b>Ваш ID:</b> <code>{message.from_user.id}</code>"
+        f"👤 <b>Ваш ID:</b> <code>{message.from_user.id}</code>\n"
     )
-
-    await message.answer(chat_info, parse_mode="HTML")
 
     # Дополнительная информация для групп
     if message.chat.type in ["group", "supergroup"]:
         members_count = await bot.get_chat_members_count(message.chat.id)
-        group_info = f"👥 <b>Участников:</b> {members_count}"
-        await message.answer(group_info, parse_mode="HTML")
+        chat_info += f"👥 <b>Участников:</b> {members_count}\n"
+        chat_info += f"👥 <b>ID группы:</b> {message.chat.id}"
+
+    await message.answer(chat_info, parse_mode="HTML")
 
 
 # Приветствие новых участников
@@ -56,3 +56,16 @@ async def welcome_new_members(message: Message):
 @router.message(F.left_chat_member)
 async def goodbye_member(message: Message):
     await message.answer(f"{message.left_chat_member.full_name} покинул нас 😢")
+
+
+# Обработчик события, когда бота добавляют в группу
+@router.message(lambda message: message.chat.type in ["group", "supergroup"])
+async def handle_group_message(message: Message):
+    chat_id = message.chat.id
+    chat_title = message.chat.title
+
+    print(f"ID группы: {chat_id}")
+    print(f"Название группы: {chat_title}")
+
+    # Можно отправить сообщение с ID группы
+    await message.answer(f"ID этой группы: {chat_id}")
