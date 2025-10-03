@@ -59,10 +59,34 @@ class RedisSettings(BaseSettings):
         return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
 
 
+class MongoSettings(BaseSettings):
+    mongo_initdb_root_username: str
+    mongo_initdb_root_password: str
+    mongo_initdb_database: str
+    mongo_initdb_host: str = "localhost"
+    mongo_initdb_port: int = 27017
+
+    model_config = SettingsConfigDict(
+        env_file=BASE_DIR / ".env", env_file_encoding="utf8", extra="ignore"
+    )
+
+    @property
+    def url(self):
+        # return f"mongodb://{self.mongo_initdb_root_username}:{self.mongo_initdb_root_password}@{self.mongo_initdb_host}:{self.mongo_initdb_port}/{self.mongo_initdb_database}?authSource={self.mongo_initdb_root_username}"
+        # DATABASE_URL=mongodb://admin:password123@localhost:6000/fastapi?authSource=admin
+        res: str = (
+            f"mongodb://{self.mongo_initdb_root_username}:{self.mongo_initdb_root_password}"
+            f"@{self.mongo_initdb_host}:{self.mongo_initdb_port}"
+            f"/{self.mongo_initdb_database}?authSource={self.mongo_initdb_root_username}"
+        )
+        return res
+
+
 class Setting(BaseModel):
     llm: LlmSettings = LlmSettings()
     bot: BotSettings = BotSettings()
     redis: RedisSettings = RedisSettings()
+    mongo: MongoSettings = MongoSettings()
 
 
 setting = Setting()
