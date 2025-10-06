@@ -51,7 +51,10 @@ class RedisSettings(BaseSettings):
     redis_db: int = 0
 
     model_config = SettingsConfigDict(
-        env_file=BASE_DIR / ".env", env_file_encoding="utf8", extra="ignore"
+        env_file=BASE_DIR / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",  # игнорирование наличия других полей в .env - файле
+        case_sensitive=False,  # регистронезависимость
     )
 
     @property
@@ -67,12 +70,14 @@ class MongoSettings(BaseSettings):
     mongo_initdb_port: int = 27017
 
     model_config = SettingsConfigDict(
-        env_file=BASE_DIR / ".env", env_file_encoding="utf8", extra="ignore"
+        env_file=BASE_DIR / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",  # игнорирование наличия других полей в .env - файле
+        case_sensitive=False,  # регистронезависимость
     )
 
     @property
     def url(self):
-        # return f"mongodb://{self.mongo_initdb_root_username}:{self.mongo_initdb_root_password}@{self.mongo_initdb_host}:{self.mongo_initdb_port}/{self.mongo_initdb_database}?authSource={self.mongo_initdb_root_username}"
         # DATABASE_URL=mongodb://admin:password123@localhost:6000/fastapi?authSource=admin
         # mongodb://localhost:27017
         res: str = "mongodb://"
@@ -80,9 +85,8 @@ class MongoSettings(BaseSettings):
             res += (
                 f"{self.mongo_initdb_root_username}:{self.mongo_initdb_root_password}@"
             )
+
         res += f"{self.mongo_initdb_host}:{self.mongo_initdb_port}"
-        if self.mongo_initdb_database:
-            res += f"/{self.mongo_initdb_database}"
         return res
 
 

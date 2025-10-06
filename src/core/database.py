@@ -15,13 +15,11 @@ class MongoManager:
         self.db = None
 
     async def connect(self):
-        self.client = AsyncClient("mongodb://localhost:27017/")
-        # self.client = AsyncClient(setting.mongo.url)
+        self.client = AsyncClient(setting.mongo.url)
         self.db = self.client[setting.mongo.mongo_initdb_database]
         try:
             await self.client.admin.command("ping")
             logger.info("✅ MongoDB подключена успешно")
-            logger.info(f"url: {setting.mongo.url}")
         except Exception as e:
             logger.error(f"❌ Ошибка подключения к MongoDB: {e}")
             raise
