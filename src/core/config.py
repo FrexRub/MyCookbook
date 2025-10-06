@@ -35,7 +35,7 @@ class LlmSettings(BaseSettings):
 
 class BotSettings(BaseSettings):
     bot_token: SecretStr
-    admin_id: int
+    admin_id: str
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
@@ -74,11 +74,15 @@ class MongoSettings(BaseSettings):
     def url(self):
         # return f"mongodb://{self.mongo_initdb_root_username}:{self.mongo_initdb_root_password}@{self.mongo_initdb_host}:{self.mongo_initdb_port}/{self.mongo_initdb_database}?authSource={self.mongo_initdb_root_username}"
         # DATABASE_URL=mongodb://admin:password123@localhost:6000/fastapi?authSource=admin
-        res: str = (
-            f"mongodb://{self.mongo_initdb_root_username}:{self.mongo_initdb_root_password}"
-            f"@{self.mongo_initdb_host}:{self.mongo_initdb_port}"
-            f"/{self.mongo_initdb_database}?authSource={self.mongo_initdb_root_username}"
-        )
+        # mongodb://localhost:27017
+        res: str = "mongodb://"
+        if self.mongo_initdb_root_username:
+            res += (
+                f"{self.mongo_initdb_root_username}:{self.mongo_initdb_root_password}@"
+            )
+        res += f"{self.mongo_initdb_host}:{self.mongo_initdb_port}"
+        if self.mongo_initdb_database:
+            res += f"/{self.mongo_initdb_database}"
         return res
 
 
