@@ -2,6 +2,7 @@ from aiogram import Router, F, Bot
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
 
+from src.core.database import MongoManager
 
 router = Router()
 
@@ -15,7 +16,7 @@ async def cmd_start(message: Message):
 
 # Получение ID группы
 @router.message(Command("group_id"))
-async def group_info(message: Message, bot: Bot):
+async def group_info(message: Message, bot: Bot, mongo: MongoManager):
     chat_info = (
         f"📊 <b>Информация о чате:</b>\n"
         f"🆔 <b>ID чата:</b> <code>{message.chat.id}</code>\n"
@@ -29,6 +30,8 @@ async def group_info(message: Message, bot: Bot):
         members_count = await bot.get_chat_members_count(message.chat.id)
         chat_info += f"👥 <b>Участников:</b> {members_count}\n"
         chat_info += f"👥 <b>ID группы:</b> {message.chat.id}"
+
+    # users_collection = mongo.get_collection("users")
 
     await message.answer(chat_info, parse_mode="HTML")
 
