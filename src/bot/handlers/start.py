@@ -1,10 +1,16 @@
+import logging
 from aiogram import Router, F, Bot
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
+from aiogram.exceptions import TelegramForbiddenError
 
 from src.core.database import MongoManager
+from src.core.config import configure_logging
 
 router = Router()
+
+configure_logging(logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 @router.message(CommandStart())
@@ -53,20 +59,9 @@ async def welcome_new_members(message: Message):
         await message.answer(welcome_text)
 
 
-# Прощание с вышедшими участниками
 @router.message(F.left_chat_member)
 async def goodbye_member(message: Message):
-    await message.answer(f"{message.left_chat_member.full_name} покинул нас 😢")
-
-
-# Обработчик события, когда бота добавляют в группу
-@router.message(lambda message: message.chat.type in ["group", "supergroup"])
-async def handle_group_message(message: Message):
-    chat_id = message.chat.id
-    chat_title = message.chat.title
-
-    print(f"ID группы: {chat_id}")
-    print(f"Название группы: {chat_title}")
-
-    # Можно отправить сообщение с ID группы
-    await message.answer(f"ID этой группы: {chat_id}")
+    try:
+        await message.answer(f"{message.left_chat_member.full_name} покинул нас 😢")
+    except TelegramForbiddenError:
+        logger.warning(f"Бот был исключен из чата, невозможно выполнить действия")
