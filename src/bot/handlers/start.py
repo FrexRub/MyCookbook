@@ -31,7 +31,7 @@ async def group_info(message: Message, bot: Bot, mongo: MongoManager):
         chat_info += f"👥 <b>Участников:</b> {members_count}\n"
         chat_info += f"👥 <b>ID группы:</b> {message.chat.id}"
 
-    # users_collection = mongo.get_collection("users")
+    users_collection = mongo.get_collection("users")
 
     await message.answer(chat_info, parse_mode="HTML")
 
