@@ -37,8 +37,6 @@ async def group_info(message: Message, bot: Bot, mongo: MongoManager):
         chat_info += f"👥 <b>Участников:</b> {members_count}\n"
         chat_info += f"👥 <b>ID группы:</b> {message.chat.id}"
 
-    users_collection = mongo.get_collection("users")
-
     await message.answer(chat_info, parse_mode="HTML")
 
 
@@ -64,4 +62,4 @@ async def goodbye_member(message: Message):
     try:
         await message.answer(f"{message.left_chat_member.full_name} покинул нас 😢")
     except TelegramForbiddenError:
-        logger.warning(f"Бот был исключен из чата, невозможно выполнить действия")
+        logger.warning("Бот был исключен из чата, невозможно выполнить действия")

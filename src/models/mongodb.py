@@ -2,7 +2,6 @@ from enum import Enum
 from datetime import datetime
 from typing import Optional
 from typing_extensions import Annotated
-from bson import ObjectId
 
 from pydantic import ConfigDict, BaseModel, Field
 from pydantic.functional_validators import BeforeValidator
