@@ -1,11 +1,14 @@
 import logging
+import asyncio
+import re
 from aiogram import Router, F, Bot
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
 from aiogram.exceptions import TelegramForbiddenError
+from aiogram.utils.chat_action import ChatActionSender
 
 from src.core.database import MongoManager
-from src.core.config import configure_logging
+from src.core.config import configure_logging, URL_PATTERN
 
 router = Router()
 
@@ -63,3 +66,46 @@ async def goodbye_member(message: Message):
         await message.answer(f"{message.left_chat_member.full_name} покинул нас 😢")
     except TelegramForbiddenError:
         logger.warning("Бот был исключен из чата, невозможно выполнить действия")
+
+
+@router.message(F.chat.type.in_(["group", "supergroup"]), F.text.contains("http"))
+async def handle_http_url(message: Message, bot: Bot):
+    chat_id = message.chat.id
+    chat_title = message.chat.title
+    user_name = message.from_user.first_name
+    text = message.text
+
+    url_text = re.findall(URL_PATTERN, text)
+
+    # эммитация печати текста ботом
+    async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
+        await asyncio.sleep(2)
+        await message.answer(
+            f"{user_name}, добавьте хештег для удобства поиска",
+            disable_notification=True,
+        )
+
+    logger.info(
+        f"Добавление в группу: '{chat_title}' пользователем: {user_name} новой ссылки c рецептами: {url_text}"
+    )
+
+
+# Обработчик текстовых сообщений в группах
+@router.message(F.chat.type.in_(["group", "supergroup"]), F.text)
+async def handle_group_message(message: Message, bot: Bot):
+    chat_id = message.chat.id
+    chat_title = message.chat.title
+    user_name = message.from_user.first_name
+    text = message.text
+
+    logger.info(f"Сообщение в группе '{chat_title}': {user_name}: {text}")
+
+    # Пример: отвечать на определенные фразы
+    if "привет бот" in text.lower():
+        await message.reply(f"Привет, {user_name}! Я здесь! 👋")
+
+    # if "http" in text.lower():
+    #     # эммитация печати текста ботом
+    #     async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
+    #         await asyncio.sleep(2)
+    #         await message.answer(f"{user_name}, добавьте хештег для удобства поиска")
