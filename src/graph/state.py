@@ -1,5 +1,5 @@
-from typing import TypedDict
 from datetime import date
+from typing import TypedDict
 
 
 class UserState(TypedDict):

@@ -1,12 +1,13 @@
 import logging
 from datetime import datetime
-from aiogram import Router, Bot
-from aiogram.types import ChatMemberUpdated
+
+from aiogram import Bot, Router
 from aiogram.exceptions import TelegramForbiddenError
+from aiogram.types import ChatMemberUpdated
 
 from src.core.config import configure_logging
-from src.models.mongodb import TelegramGroupModel
 from src.core.database import MongoManager
+from src.models.mongodb import TelegramGroupModel
 
 router = Router()
 

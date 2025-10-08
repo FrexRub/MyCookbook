@@ -1,9 +1,9 @@
-from typing import Optional
 import logging
+from typing import Optional
 
 from async_pymongo import AsyncClient
 
-from src.core.config import setting, configure_logging
+from src.core.config import configure_logging, setting
 
 configure_logging(logging.INFO)
 logger = logging.getLogger(__name__)

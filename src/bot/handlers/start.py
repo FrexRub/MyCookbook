@@ -1,14 +1,12 @@
 import logging
-import asyncio
 import re
-from aiogram import Router, F, Bot
-from aiogram.filters import CommandStart, Command
-from aiogram.types import Message
-from aiogram.exceptions import TelegramForbiddenError
-from aiogram.utils.chat_action import ChatActionSender
 
-from src.core.database import MongoManager
-from src.core.config import configure_logging, URL_PATTERN
+from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramForbiddenError
+from aiogram.filters import Command, CommandStart
+from aiogram.types import Message
+
+from src.core.config import URL_PATTERN, configure_logging
 
 router = Router()
 
@@ -25,7 +23,7 @@ async def cmd_start(message: Message):
 
 # Получение ID группы
 @router.message(Command("group_id"))
-async def group_info(message: Message, bot: Bot, mongo: MongoManager):
+async def group_info(message: Message, bot: Bot):
     chat_info = (
         f"📊 <b>Информация о чате:</b>\n"
         f"🆔 <b>ID чата:</b> <code>{message.chat.id}</code>\n"
@@ -69,21 +67,12 @@ async def goodbye_member(message: Message):
 
 
 @router.message(F.chat.type.in_(["group", "supergroup"]), F.text.contains("http"))
-async def handle_http_url(message: Message, bot: Bot):
-    chat_id = message.chat.id
+async def handle_http_url(message: Message):
     chat_title = message.chat.title
     user_name = message.from_user.first_name
     text = message.text
 
     url_text = re.findall(URL_PATTERN, text)
-
-    # эммитация печати текста ботом
-    async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
-        await asyncio.sleep(2)
-        await message.answer(
-            f"{user_name}, добавьте хештег для удобства поиска",
-            disable_notification=True,
-        )
 
     logger.info(
         f"Добавление в группу: '{chat_title}' пользователем: {user_name} новой ссылки c рецептами: {url_text}"
@@ -92,20 +81,10 @@ async def handle_http_url(message: Message, bot: Bot):
 
 # Обработчик текстовых сообщений в группах
 @router.message(F.chat.type.in_(["group", "supergroup"]), F.text)
-async def handle_group_message(message: Message, bot: Bot):
-    chat_id = message.chat.id
-    chat_title = message.chat.title
+async def handle_group_message(message: Message):
     user_name = message.from_user.first_name
     text = message.text
-
-    logger.info(f"Сообщение в группе '{chat_title}': {user_name}: {text}")
 
     # Пример: отвечать на определенные фразы
     if "привет бот" in text.lower():
         await message.reply(f"Привет, {user_name}! Я здесь! 👋")
-
-    # if "http" in text.lower():
-    #     # эммитация печати текста ботом
-    #     async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
-    #         await asyncio.sleep(2)
-    #         await message.answer(f"{user_name}, добавьте хештег для удобства поиска")

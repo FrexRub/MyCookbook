@@ -1,13 +1,13 @@
 from datetime import date
 
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import END, START, StateGraph
 
 from src.graph.state import UserState
 from src.graph.utils import (
     calculate_age,
-    generate_success_message,
-    generate_failure_message,
     check_drive,
+    generate_failure_message,
+    generate_success_message,
 )
 
 graph = StateGraph(UserState)

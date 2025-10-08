@@ -1,12 +1,12 @@
-from pathlib import Path
 import logging
+from pathlib import Path
 
-from openai import OpenAI
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
-from pydantic import SecretStr, BaseModel
+from openai import OpenAI
+from pydantic import BaseModel, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).parent.parent.parent

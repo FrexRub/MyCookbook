@@ -1,11 +1,10 @@
-from enum import Enum
 from datetime import datetime
+from enum import Enum
 from typing import Optional
-from typing_extensions import Annotated
 
-from pydantic import ConfigDict, BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.functional_validators import BeforeValidator
-
+from typing_extensions import Annotated
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
