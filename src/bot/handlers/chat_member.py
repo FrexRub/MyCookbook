@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from aiogram import Router, Bot
 from aiogram.types import ChatMemberUpdated
 from aiogram.exceptions import TelegramForbiddenError
@@ -63,18 +64,47 @@ async def handle_bot_added_as_member(
         logger.error(f"Ошибка при обработке добавления бота: {e}")
 
 
-async def handle_bot_removed(chat_id: int, chat_title: str):
+async def handle_bot_removed(
+    chat_member: ChatMemberUpdated, bot: Bot, mongo: MongoManager
+):
     """Обработка удаления бота из чата"""
-    logger.info(f"Выполняем cleanup для чата {chat_title} (ID: {chat_id})")
-    # Удаляем чат из БД, чистим кэш и т.д.
+    chat_id = chat_member.chat.id
+    chat_title = chat_member.chat.title
 
+    try:
+        group_collection = mongo.get_collection("groups")
 
-async def cleanup_chat_data(chat_id: int):
-    """Очистка данных чата"""
-    # Удаление из базы данных
-    # Очистка кэша
-    # Обновление статистики
-    pass
+        # Ищем информацию о группе в базе
+        group_data = await group_collection.find_one({"chat_id": chat_id})
+
+        if group_data and group_data.get("user_id"):
+            admin_user_id = group_data["user_id"]
+
+            # Отправляем сообщение администратору
+            try:
+                message_text = (
+                    f"❌ Бот был удален из группы\n"
+                    f"📋 Группа: {chat_title}\n"
+                    f"⏰ Время: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+                    f"Чтобы добавить бота обратно, используйте ссылку:\n"
+                    f"https://t.me/your_bot_username?startgroup=true"
+                )
+
+                await bot.send_message(chat_id=admin_user_id, text=message_text)
+                logger.info(f"Уведомление отправлено администратору {admin_user_id}")
+
+            except Exception as e:
+                logger.error(f"Не удалось отправить уведомление администратору: {e}")
+
+        # Обновляем статус в базе данных
+        await group_collection.update_one(
+            {"chat_id": chat_id},
+            {"$set": {"status": "kicked", "updated_at": datetime.utcnow()}},
+        )
+        logger.info(f"Статус группы {chat_id} обновлен на 'kicked'")
+
+    except Exception as e:
+        logger.error(f"Ошибка при обработке удаления бота: {e}")
 
 
 @router.my_chat_member()
@@ -95,18 +125,13 @@ async def handle_bot_status_change(
         logger.info("❌ Бота удалили из группы")
 
         try:
-            # Попытка выполнить какие-то финальные действия
-            # Например, отправить сообщение владельцу бота
-            await handle_bot_removed(chat_id, chat_title)
+            await handle_bot_removed(chat_member, bot, mongo)
 
         except TelegramForbiddenError:
             logger.info(
                 f"Бот был исключен из чата {chat_id}, невозможно выполнить действия"
             )
 
-        finally:
-            # Обязательные действия (очистка БД и т.д.)
-            await cleanup_chat_data(chat_id)
         return
 
     # Бота добавили в группу
@@ -115,5 +140,4 @@ async def handle_bot_status_change(
 
     # Бота сделали администратором
     elif new_status == "administrator":
-        # await handle_bot_promoted(chat_member, bot)
         logger.info(f"Бот назначен администратором в чатеа {chat_id}")
