@@ -4,6 +4,8 @@ from aiogram.types import ChatMemberUpdated
 from aiogram.exceptions import TelegramForbiddenError
 
 from src.core.config import configure_logging
+from src.models.mongodb import TelegramGroupModel
+from src.core.database import MongoManager
 
 router = Router()
 
@@ -11,22 +13,49 @@ configure_logging(logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def handle_bot_added_as_member(chat_member: ChatMemberUpdated, bot: Bot):
+async def handle_bot_added_as_member(
+    chat_member: ChatMemberUpdated, bot: Bot, mongo: MongoManager
+):
     """Обработка добавления бота как участника"""
     chat_id = chat_member.chat.id
+    new_status = chat_member.new_chat_member.status
+    chat_title = chat_member.chat.title
 
     try:
         admins = await bot.get_chat_administrators(chat_id)
-
         creator = next((admin for admin in admins if admin.status == "creator"), None)
         if creator:
             user = creator.user
-            logger.info(
-                f"Создатель чата: {user.first_name} , {user.last_name or ''} (ID: {user.id}) @{user.username or 'нет'}"
+
+            new_group: TelegramGroupModel = TelegramGroupModel(
+                title=chat_title,
+                chat_id=chat_id,
+                status=new_status,
+                username_tg=user.username,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                user_id=user.id,
             )
 
-        # Сохраняем информацию о чате в БД
-        # await save_chat_to_db(chat_id, chat_member.chat.title)
+        else:
+            new_group: TelegramGroupModel = TelegramGroupModel(
+                title=chat_title,
+                chat_id=chat_id,
+                status=new_status,
+            )
+        group_collection = mongo.get_collection("groups")
+
+        # Обновляем существующую запись или создаем новую
+        result = await group_collection.update_one(
+            {"chat_id": chat_id},
+            {"$set": new_group.model_dump(by_alias=True, exclude_none=True)},
+            upsert=True,
+        )
+
+        if result.upserted_id:
+            logger.info(f"Данные чата с ID: {chat_id} добавлены в базу данных")
+        else:
+            logger.info(f"Данные чата с ID: {chat_id} обновлены в базе данных")
 
     except TelegramForbiddenError:
         logger.warning(f"Нет доступа к информации о чате {chat_id}")
@@ -49,7 +78,9 @@ async def cleanup_chat_data(chat_id: int):
 
 
 @router.my_chat_member()
-async def handle_bot_status_change(chat_member: ChatMemberUpdated, bot: Bot):
+async def handle_bot_status_change(
+    chat_member: ChatMemberUpdated, bot: Bot, mongo: MongoManager
+):
     old_status = chat_member.old_chat_member.status
     new_status = chat_member.new_chat_member.status
     chat_id = chat_member.chat.id
@@ -80,7 +111,7 @@ async def handle_bot_status_change(chat_member: ChatMemberUpdated, bot: Bot):
 
     # Бота добавили в группу
     if new_status == "member":
-        await handle_bot_added_as_member(chat_member, bot)
+        await handle_bot_added_as_member(chat_member, bot, mongo)
 
     # Бота сделали администратором
     elif new_status == "administrator":
