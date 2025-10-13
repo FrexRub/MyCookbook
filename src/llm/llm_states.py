@@ -2,7 +2,7 @@ from typing import TypedDict
 
 
 class ParsingState(TypedDict):
-    url: str
+    content: str
     title: str
     description: str
     category: str

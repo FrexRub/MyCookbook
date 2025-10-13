@@ -1,15 +1,16 @@
+import asyncio
 from enum import Enum
 from typing import Any
 
 from langgraph.graph import StateGraph, END, START
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
-from langchain.schema import HumanMessage, SystemMessage, AIMessage
+from langchain.schema import HumanMessage, SystemMessage
 from langgraph.graph.state import CompiledStateGraph
 
 from src.llm.llm_states import ParsingState
-
 from src.core.config import setting
+from src.utils.parsing import get_content
 
 
 class MealType(Enum):
@@ -23,7 +24,7 @@ class MealType(Enum):
     SAUCES = "соусы и приправы"
 
 
-class ParsingnAgent:
+class ParsingAgent:
     def __init__(self, model_name: str = "gpt-4o-mini", temperature: float = 0.1):
         """Инициализация агента"""
         self.llm = ChatOpenAI(
@@ -45,38 +46,33 @@ class ParsingnAgent:
         return workflow.compile()
 
     async def _parsing_site(self, state: ParsingState) -> dict[str, Any]:
-        system_prompt = SystemMessage(
-            content="Ты кулинарный блогер, прекрасно разбирающийся в кулинарии всех стран"
-        )
+        message = [
+            SystemMessage(
+                content="Ты кулинарный блогер, прекрасно разбирающийся в кулинарии и читать сайты с кулинарными рецептами"
+            )
+        ]
         prompt = PromptTemplate(
-            input_variables=["url_site"],
+            input_variables=["content"],
             template="""
-            Изучи содержание интернет страницы 
-            {url_site} 
-            и верни название блюда, которое описано на данной странице, перечисли ингредиенты с необходимым количеством 
+            Изучи содержание контента полученного с сайта с помощью парсинга 
+            {content} 
+
+            и верни название блюда, перечисли используемые ингредиенты с указанным количеством 
             и этапы приготовления блюда
 
-            Описание: {description}
-
-            Ответь только одним из двух вариантов:
-            - "проектная работа" - если это временная задача, проект, фриланс, разовая работа
-            - "постоянная работа" - если это постоянная должность, штатная позиция, долгосрочное трудоустройство
-
-            Тип работы:
             """,
         )
 
-        message = HumanMessage(content=prompt.format(description=state["url"]))
-        response = await self.llm.ainvoke([message])
-        print("job_type:", response.content.strip())
-        job_type = response.content.strip().lower()
+        message.append(HumanMessage(content=prompt.format(content=state["content"])))
+        response = await self.llm.ainvoke(message)
+        print("content:", response.content)
 
-        return {"job_type": job_type}
+        return {"content": response.content}
 
-    async def classify(self, url_pars: str):
+    async def classify(self, content: str):
         """Основной метод для классификации вакансии/услуги"""
         initial_state = {
-            "url": url_pars,
+            "content": content,
             "title": "",
             "description": "",
             "category": "",
@@ -84,7 +80,6 @@ class ParsingnAgent:
             "processed": False,
         }
 
-        # Запускаем рабочий процесс
         result = await self.workflow.ainvoke(initial_state)
 
         # Формируем итоговый ответ в формате JSON
@@ -97,3 +92,15 @@ class ParsingnAgent:
         # }
 
         return "classification_result"
+
+
+async def main():
+    content = get_content(
+        "https://1000.menu/cooking/90658-pasta-orzo-s-gribami-i-slivkami"
+    )
+    app = ParsingAgent()
+    res = await app.classify(content)
+    print(res)
+
+
+asyncio.run(main())
