@@ -71,7 +71,6 @@ class ParsingnAgent:
         print("job_type:", response.content.strip())
         job_type = response.content.strip().lower()
 
-
         return {"job_type": job_type}
 
     async def classify(self, url_pars: str):
