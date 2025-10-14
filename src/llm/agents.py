@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import logging
+import json
 
 
 from enum import Enum
@@ -118,18 +119,20 @@ class ParsingAgent:
         message = [
             SystemMessage(
                 content=(
-                    "Ты кулинарный блогер, прекрасно разбирающийся в кулинарии, читаешь и пишешь статьи"
-                    "с кулинарными рецептами"
+                    "Ты кулинарный блогер, прекрасно разбирающийся в кулинарии. "
+                    "Верни ответ ТОЛЬКО в формате JSON без каких-либо дополнительных текстов, объяснений или комментариев. "
+                    "Формат JSON должен быть точно таким: "
+                    '{"title": "название", "ingredients": {"ингредиент": "количество"}, "description": ["шаг 1", "шаг 2"], "category": "категория"}'
                 )
             )
         ]
         prompt = PromptTemplate(
             input_variables=["content"],
             template="""
-            Подробно изучи содержание контента c рецептом:
+            Проанализируй этот кулинарный рецепт и верни информацию в JSON формате:
             {content} 
 
-            Извлеки следующую информацию и верни ТОЛЬКО в формате JSON:
+           Требуемый JSON формат:
             - title: название блюда
             - ingredients: список ингредиентов с указанием количества в формате словаря
             - description: пошаговые этапы приготовления блюда в формате списка ["шаг 1", "шаг 2", ...]
@@ -139,9 +142,15 @@ class ParsingAgent:
 
         message.append(HumanMessage(content=prompt.format(content=content)))
         response = await self.llm.ainvoke(message)
+
         print("content:", response.content)
 
-        return {"content": response.content}
+        try:
+            res = json.loads(response.content)
+        except Exception as e:
+            print(f"Error {e}")
+            res = dict()
+        return res
 
     async def classify(self, url: str):
         """Основной метод для классификации вакансии/услуги"""
@@ -155,7 +164,7 @@ class ParsingAgent:
         }
 
         result = await self.workflow.ainvoke(initial_state)
-
+        print("content:", result)
         # Формируем итоговый ответ в формате JSON
         # classification_result = {
         #     "job_type": result["job_type"],
