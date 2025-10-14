@@ -64,8 +64,14 @@ class ParsingAgent:
         try:
             url: str = state["url"]
             logger.info(f"Start fetch webpage {url}")
+            default_headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+
             timeout_obj = aiohttp.ClientTimeout(total=timeout)
-            async with aiohttp.ClientSession(timeout=timeout_obj) as session:
+            async with aiohttp.ClientSession(
+                timeout=timeout_obj, headers=default_headers
+            ) as session:
                 async with session.get(url) as response:
                     response.raise_for_status()
                     return await response.text()
@@ -120,12 +126,14 @@ class ParsingAgent:
         prompt = PromptTemplate(
             input_variables=["content"],
             template="""
-            Подробно изучи содержание контента c рецептом
+            Подробно изучи содержание контента c рецептом:
             {content} 
 
-            и верни название блюда, перечисли используемые ингредиенты с указанным количеством 
-            и этапы приготовления блюда
-
+            Извлеки следующую информацию и верни ТОЛЬКО в формате JSON:
+            - title: название блюда
+            - ingredients: список ингредиентов с указанием количества в формате словаря
+            - description: пошаговые этапы приготовления блюда в формате списка ["шаг 1", "шаг 2", ...]
+            - category: к какому виду блюд относится (например, суп, десерт, основное блюдо, закуска и т.д.)
             """,
         )
 
