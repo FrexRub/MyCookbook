@@ -18,6 +18,7 @@ from src.core.exceptions import (
     ExceptClientError,
     ExceptTimeoutError,
     ExceptFetchWebpage,
+    ExceptClientResponseError,
 )
 from src.llm.llm_states import ParsingState
 from src.core.config import setting
@@ -54,49 +55,89 @@ class ParsingAgent:
         workflow = StateGraph(ParsingState)
 
         workflow.add_node("parsing_site", self._parsing_site_ai)
+        workflow.add_node("check_status", self._check_status)
+        workflow.add_node("return_result", self._return_result)
+        workflow.add_node("return_error", self._return_error)
 
         workflow.add_edge(START, "parsing_site")
-        workflow.add_edge("parsing_site", END)
+        workflow.add_conditional_edges(
+            "parsing_site",
+            self._check_status,
+            {"Ok": "return_result", "Error": "return_error"},
+        )
+
+        workflow.add_edge("return_result", END)
+        workflow.add_edge("return_error", END)
 
         return workflow.compile()
 
-    async def _fetch_webpage(self, state: ParsingState, timeout=30) -> str:
+    async def _check_status(self, state: ParsingState) -> str:
+        await asyncio.sleep(0, 1)
+        # if state["state"] == "Ok":
+        print("State:", state)
+        if "Ok" == "Ok":
+            return "Ok"
+        else:
+            return "Error"
+
+    async def _return_result(self, state: ParsingState) -> dict[str, Any]:
+        await asyncio.sleep(0, 1)
+        result = {
+            "title": state["title"],
+            "description": state["description"],
+            "category": state["category"],
+            "ingredients": state["ingredients"],
+        }
+        return result
+
+    async def _return_error(self, state: ParsingState) -> dict[str, Any]:
+        await asyncio.sleep(0, 1)
+        result = {
+            "error": state["state"],
+        }
+        return result
+
+    async def _fetch_webpage(self, state: ParsingState, timeout=30, retries=2) -> str:
         """Асинхронная загрузка веб-страницы"""
-        try:
-            url: str = state["url"]
-            logger.info(f"Start fetch webpage {url}")
-            default_headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            }
 
-            timeout_obj = aiohttp.ClientTimeout(total=timeout)
-            async with aiohttp.ClientSession(
-                timeout=timeout_obj, headers=default_headers
-            ) as session:
-                async with session.get(url) as response:
-                    response.raise_for_status()
-                    return await response.text()
+        url: str = state["url"]
+        logger.info(f"Start fetch webpage {url}")
+        default_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
 
-        except aiohttp.ClientResponseError as e:
-            logger.warning(f"Ошибка при загрузке страницы {url}")
-            raise ExceptClientError(f"Ошибка при загрузке страницы {url}: {e}")
+        timeout_obj = aiohttp.ClientTimeout(total=timeout)
+        for attempt in range(retries + 1):
+            try:
+                async with aiohttp.ClientSession(
+                    timeout=timeout_obj, headers=default_headers
+                ) as session:
+                    async with session.get(url) as response:
+                        response.raise_for_status()
+                        return await response.text()
 
-        except aiohttp.ClientError as e:
-            logger.warning(f"Ошибка при загрузке страницы {url}")
-            raise ExceptClientError(f"Ошибка при загрузке страницы {url}: {e}")
+            except aiohttp.ClientResponseError as e:
+                logger.warning(
+                    f"Ошибка ClientResponseError при загрузке страницы {url}"
+                )
+                raise ExceptClientResponseError(e)
 
-        except asyncio.TimeoutError as e:
-            logger.warning(f"Таймаут при загрузке страницы {url}")
-            raise ExceptTimeoutError(f"Таймаут при загрузке страницы {url}: {e}")
+            except aiohttp.ClientError as e:
+                logger.warning(f"Ошибка ClientError при загрузке страницы {url}")
+                raise ExceptClientError(e)
 
-        except Exception as e:
-            logger.warning(f"Неожиданная ошибка при загрузке {url}: {e}")
-            raise ExceptFetchWebpage(f"Неожиданная ошибка при загрузке {url}: {e}")
+            except asyncio.TimeoutError:
+                logger.warning(
+                    f"Таймаут при загрузке страницы {url}, попытка {attempt + 1}/{retries + 1}"
+                )
+                if attempt < retries:
+                    await asyncio.sleep(2**attempt)
+                else:
+                    raise ExceptTimeoutError(f"Таймаут при загрузке страницы {url}")
 
     async def _extract_text_content(self, html_content: str):
-        """Упрощенная асинхронная версия"""
+        """Извлечение текстового контента со скаченной страницы Интернет"""
 
-        # Создаем частичную функцию для вызова в executor
         def sync_parse():
             soup = BeautifulSoup(html_content, "html.parser")
             for element in soup(["script", "style", "nav", "footer", "header"]):
@@ -111,9 +152,17 @@ class ParsingAgent:
     async def _parsing_site_ai(self, state: ParsingState) -> dict[str, Any]:
         try:
             html_content = await self._fetch_webpage(state=state)
-        except ExceptClientError as e:
-            print(f"Возникла ошибка {e}")
-            return None
+        except ExceptClientResponseError as e:
+            if e.status == 404:
+                return {"state": "Страница не найдена"}
+            elif (e.status == 401) or (e.status == 403):
+                return {"state": "Отсутствует право доступа"}
+            else:
+                return {"state": f"Ошибка сервера с кодом {e.status}"}
+        except ExceptClientError:
+            return {"state": "Ошибка сервиса"}
+        except ExceptTimeoutError:
+            return {"state": "Таймаут при загрузке страницы"}
 
         content = await self._extract_text_content(html_content=html_content)
         message = [
@@ -141,11 +190,14 @@ class ParsingAgent:
         )
 
         message.append(HumanMessage(content=prompt.format(content=content)))
+
+        # Получение результата работы модели
         response = await self.llm.ainvoke(message)
 
-        print("content:", response.content)
+        print(response.content)
 
         try:
+            # Сериализуем результат из json в словарь
             res = json.loads(response.content)
         except Exception as e:
             print(f"Error {e}")
@@ -159,12 +211,13 @@ class ParsingAgent:
             "title": "",
             "description": "",
             "category": "",
-            "ingredients": list(),
-            "processed": False,
+            "ingredients": dict(),
+            "status": "Ok",
         }
 
         result = await self.workflow.ainvoke(initial_state)
-        print("content:", result)
+
+        return result
         # Формируем итоговый ответ в формате JSON
         # classification_result = {
         #     "job_type": result["job_type"],
@@ -174,14 +227,18 @@ class ParsingAgent:
         #     "success": result["processed"],
         # }
 
-        return "classification_result"
-
 
 async def main():
     app = ParsingAgent()
     res = await app.classify(
-        "https://1000.menu/cooking/90658-pasta-orzo-s-gribami-i-slivkami"
+        # "https://1000.menu/cooking/90658-pasta-orzo-s-gribami-i-slivkami"
+        "https://share.google/iPyxfhgn5gFRPTRNW"
     )
+    print(f"Result:\n {res}")
+    # if res["state"] == "Ok":
+    #     print(f"Result:\n {res}")
+    # else:
+    #     print(res["state"])
 
 
 asyncio.run(main())

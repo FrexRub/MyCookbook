@@ -4,7 +4,7 @@ from typing import TypedDict
 class ParsingState(TypedDict):
     url: str
     title: str
-    description: str
+    description: list[str]
     category: str
-    ingredients: list[dict[str, float]]
-    processed: bool
+    ingredients: dict[str, str]
+    state: str
