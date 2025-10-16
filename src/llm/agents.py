@@ -4,7 +4,6 @@ import logging
 import json
 
 
-from enum import Enum
 from typing import Any
 
 from bs4 import BeautifulSoup
@@ -17,7 +16,6 @@ from langgraph.graph.state import CompiledStateGraph
 from src.core.exceptions import (
     ExceptClientError,
     ExceptTimeoutError,
-    ExceptFetchWebpage,
     ExceptClientResponseError,
 )
 from src.llm.llm_states import ParsingState
@@ -27,17 +25,6 @@ from src.core.config import configure_logging
 
 configure_logging(logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-class MealType(Enum):
-    SNACKS = "закуски"
-    FIRST = "первые блюда"
-    SECOND = "вторые блюда"
-    GARNISH = "гарниры"
-    SALADS = "cалаты"
-    DESSERTS = "десерты"
-    DRINKS = "напитки"
-    SAUCES = "соусы и приправы"
 
 
 class ParsingAgent:
@@ -55,46 +42,11 @@ class ParsingAgent:
         workflow = StateGraph(ParsingState)
 
         workflow.add_node("parsing_site", self._parsing_site_ai_node)
-        workflow.add_node("return_result", self._return_result_node)
-        workflow.add_node("return_error", self._return_error_node)
 
         workflow.add_edge(START, "parsing_site")
-        workflow.add_conditional_edges(
-            "parsing_site",
-            self._check_status,
-            {"Ok": "return_result", "Error": "return_error"},
-        )
-
-        workflow.add_edge("return_result", END)
-        workflow.add_edge("return_error", END)
+        workflow.add_edge("parsing_site", END)
 
         return workflow.compile()
-
-    async def _check_status(self, state: ParsingState) -> str:
-        await asyncio.sleep(0, 1)
-        # if state["state"] == "Ok":
-        print("State:", state)
-        if "Ok" == "Ok":
-            return "Ok"
-        else:
-            return "Error"
-
-    async def _return_result_node(self, state: ParsingState) -> dict[str, Any]:
-        await asyncio.sleep(0, 1)
-        result = {
-            "title": state["title"],
-            "description": state["description"],
-            "category": state["category"],
-            "ingredients": state["ingredients"],
-        }
-        return result
-
-    async def _return_error_node(self, state: ParsingState) -> dict[str, Any]:
-        await asyncio.sleep(0, 1)
-        result = {
-            "error": state["state"],
-        }
-        return result
 
     async def _fetch_webpage(self, state: ParsingState, timeout=30, retries=2) -> str:
         """Асинхронная загрузка веб-страницы"""
@@ -153,15 +105,15 @@ class ParsingAgent:
             html_content = await self._fetch_webpage(state=state)
         except ExceptClientResponseError as e:
             if e.status == 404:
-                return {"state": "Страница не найдена"}
+                return {"status": "Страница не найдена"}
             elif (e.status == 401) or (e.status == 403):
-                return {"state": "Отсутствует право доступа"}
+                return {"status": "Отсутствует право доступа"}
             else:
-                return {"state": f"Ошибка сервера с кодом {e.status}"}
+                return {"status": f"Ошибка сервера с кодом {e.status}"}
         except ExceptClientError:
-            return {"state": "Ошибка сервиса"}
+            return {"status": "Ошибка сервиса"}
         except ExceptTimeoutError:
-            return {"state": "Таймаут при загрузке страницы"}
+            return {"status": "Таймаут при загрузке страницы"}
 
         content = await self._extract_text_content(html_content=html_content)
         message = [
@@ -198,7 +150,7 @@ class ParsingAgent:
             res_json = json.loads(response.content)
         except Exception as e:
             print(f"Error {e}")
-            state_result = {"state": f"{e}"}
+            return {"status": f"{e}"}
 
         state_result = {
             "title": res_json["title"],
@@ -226,7 +178,7 @@ class ParsingAgent:
             "description": result["description"],
             "category": result["category"],
             "ingredients": result["ingredients"],
-            # "state": result["state"],
+            "status": result["status"],
         }
 
         return state_result
@@ -235,14 +187,14 @@ class ParsingAgent:
 async def main():
     app = ParsingAgent()
     res = await app.classify(
-        # "https://1000.menu/cooking/90658-pasta-orzo-s-gribami-i-slivkami"
-        "https://share.google/iPyxfhgn5gFRPTRNW"
+        "https://1000.menu/cooking/90658-pasta-orzo-s-gribami-i-slivkami"
+        # "https://share.google/iPyxfhgn5gFRPTRNW"
     )
-    print(f"Result:\n {res}")
-    # if res["state"] == "Ok":
-    #     print(f"Result:\n {res}")
-    # else:
-    #     print(res["state"])
+
+    if res["status"] == "Ok":
+        print(f"Result:\n {res}")
+    else:
+        print(res["status"])
 
 
 asyncio.run(main())

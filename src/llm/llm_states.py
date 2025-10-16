@@ -7,4 +7,4 @@ class ParsingState(TypedDict):
     description: list[str]
     category: str
     ingredients: dict[str, str]
-    state: str
+    status: str
