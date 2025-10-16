@@ -54,10 +54,9 @@ class ParsingAgent:
     def _create_workflow(self) -> CompiledStateGraph:
         workflow = StateGraph(ParsingState)
 
-        workflow.add_node("parsing_site", self._parsing_site_ai)
-        workflow.add_node("check_status", self._check_status)
-        workflow.add_node("return_result", self._return_result)
-        workflow.add_node("return_error", self._return_error)
+        workflow.add_node("parsing_site", self._parsing_site_ai_node)
+        workflow.add_node("return_result", self._return_result_node)
+        workflow.add_node("return_error", self._return_error_node)
 
         workflow.add_edge(START, "parsing_site")
         workflow.add_conditional_edges(
@@ -80,7 +79,7 @@ class ParsingAgent:
         else:
             return "Error"
 
-    async def _return_result(self, state: ParsingState) -> dict[str, Any]:
+    async def _return_result_node(self, state: ParsingState) -> dict[str, Any]:
         await asyncio.sleep(0, 1)
         result = {
             "title": state["title"],
@@ -90,7 +89,7 @@ class ParsingAgent:
         }
         return result
 
-    async def _return_error(self, state: ParsingState) -> dict[str, Any]:
+    async def _return_error_node(self, state: ParsingState) -> dict[str, Any]:
         await asyncio.sleep(0, 1)
         result = {
             "error": state["state"],
@@ -149,7 +148,7 @@ class ParsingAgent:
         logger.info("Start extract text content from")
         return await asyncio.to_thread(sync_parse)
 
-    async def _parsing_site_ai(self, state: ParsingState) -> dict[str, Any]:
+    async def _parsing_site_ai_node(self, state: ParsingState) -> dict[str, Any]:
         try:
             html_content = await self._fetch_webpage(state=state)
         except ExceptClientResponseError as e:
@@ -194,15 +193,20 @@ class ParsingAgent:
         # Получение результата работы модели
         response = await self.llm.ainvoke(message)
 
-        print(response.content)
-
         try:
             # Сериализуем результат из json в словарь
-            res = json.loads(response.content)
+            res_json = json.loads(response.content)
         except Exception as e:
             print(f"Error {e}")
-            res = dict()
-        return res
+            state_result = {"state": f"{e}"}
+
+        state_result = {
+            "title": res_json["title"],
+            "description": res_json["description"],
+            "category": res_json["category"],
+            "ingredients": res_json["ingredients"],
+        }
+        return state_result
 
     async def classify(self, url: str):
         """Основной метод для классификации вакансии/услуги"""
@@ -217,15 +221,15 @@ class ParsingAgent:
 
         result = await self.workflow.ainvoke(initial_state)
 
-        return result
-        # Формируем итоговый ответ в формате JSON
-        # classification_result = {
-        #     "job_type": result["job_type"],
-        #     "category": result["category"],
-        #     "search_type": result["search_type"],
-        #     "confidence_scores": result["confidence_scores"],
-        #     "success": result["processed"],
-        # }
+        state_result = {
+            "title": result["title"],
+            "description": result["description"],
+            "category": result["category"],
+            "ingredients": result["ingredients"],
+            # "state": result["state"],
+        }
+
+        return state_result
 
 
 async def main():
