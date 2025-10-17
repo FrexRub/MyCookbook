@@ -97,7 +97,7 @@ class ParsingAgent:
             lines = [line.strip() for line in text.split("\n") if line.strip()]
             return "\n".join(lines[:2000])
 
-        logger.info("Start extract text content from")
+        logger.info("Start extract text from content")
         return await asyncio.to_thread(sync_parse)
 
     async def _parsing_site_ai_node(self, state: ParsingState) -> dict[str, Any]:
@@ -187,7 +187,9 @@ class ParsingAgent:
 async def main():
     app = ParsingAgent()
     res = await app.classify(
-        "https://1000.menu/cooking/90658-pasta-orzo-s-gribami-i-slivkami"
+        # "https://share.google/mhpd7DAqaCSwPcnV8"
+        "https://www.kp.ru/family/eda/retsept-glintvejna/"
+        # "https://1000.menu/cooking/90658-pasta-orzo-s-gribami-i-slivkami"
         # "https://share.google/iPyxfhgn5gFRPTRNW"
     )
 
