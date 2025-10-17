@@ -1,11 +1,13 @@
 import logging
 import re
+import asyncio
 
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
 
+from src.bot.parser import process_recipe
 from src.core.config import URL_PATTERN, configure_logging
 
 router = Router()
@@ -73,9 +75,21 @@ async def handle_http_url(message: Message):
     text = message.text
 
     url_text = re.findall(URL_PATTERN, text)
+    if not url_text:
+        await message.reply("Не удалось найти ссылку в сообщении.")
+        return
 
+    url = url_text[0]
     logger.info(
-        f"Добавление в группу: '{chat_title}' пользователем: {user_name} новой ссылки c рецептами: {url_text}"
+        f"Добавление в группу '{chat_title}' пользователем {user_name} новой ссылки: {url}"
+    )
+
+    # Моментальный ответ, чтобы пользователь видел, что бот работает
+    await message.answer("Обрабатываю рецепт, пожалуйста, подождите...")
+
+    # Фоновое выполнение без блокировки бота
+    task = asyncio.create_task(
+        process_recipe(bot=message.bot, chat_id=message.chat.id, url=url)
     )
 
 
