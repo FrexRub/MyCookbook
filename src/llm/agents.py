@@ -1,16 +1,13 @@
 import aiohttp
 import asyncio
 import logging
-import json
-
-
-from typing import Any
 
 from bs4 import BeautifulSoup
 from langgraph.graph import StateGraph, END, START
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
+from langchain_core.output_parsers import JsonOutputParser
 from langgraph.graph.state import CompiledStateGraph
 
 from src.core.exceptions import (
@@ -18,7 +15,7 @@ from src.core.exceptions import (
     ExceptTimeoutError,
     ExceptClientResponseError,
 )
-from src.llm.llm_states import ParsingState
+from src.llm.llm_states import ParsingState, ParsingRecipe
 from src.core.config import setting
 from src.core.config import configure_logging
 
@@ -65,20 +62,26 @@ class ParsingAgent:
                 ) as session:
                     async with session.get(url) as response:
                         response.raise_for_status()
+
                         return await response.text()
 
             except aiohttp.ClientResponseError as e:
                 logger.warning(
                     f"Ошибка ClientResponseError при загрузке страницы {url}"
                 )
+                print(f"Ошибка ClientResponseError при загрузке страницы {url}")
                 raise ExceptClientResponseError(e)
 
             except aiohttp.ClientError as e:
                 logger.warning(f"Ошибка ClientError при загрузке страницы {url}")
+                print(f"Ошибка ClientError при загрузке страницы {url}")
                 raise ExceptClientError(e)
 
             except asyncio.TimeoutError:
                 logger.warning(
+                    f"Таймаут при загрузке страницы {url}, попытка {attempt + 1}/{retries + 1}"
+                )
+                print(
                     f"Таймаут при загрузке страницы {url}, попытка {attempt + 1}/{retries + 1}"
                 )
                 if attempt < retries:
@@ -100,13 +103,13 @@ class ParsingAgent:
         logger.info("Start extract text from content")
         return await asyncio.to_thread(sync_parse)
 
-    async def _parsing_site_ai_node(self, state: ParsingState) -> dict[str, Any]:
+    async def _parsing_site_ai_node(self, state: ParsingState) -> dict[str, any]:
         try:
             html_content = await self._fetch_webpage(state=state)
         except ExceptClientResponseError as e:
             if e.status == 404:
                 return {"status": "Страница не найдена"}
-            elif (e.status == 401) or (e.status == 403):
+            elif e.status in (401, 403):
                 return {"status": "Отсутствует право доступа"}
             else:
                 return {"status": f"Ошибка сервера с кодом {e.status}"}
@@ -115,50 +118,54 @@ class ParsingAgent:
         except ExceptTimeoutError:
             return {"status": "Таймаут при загрузке страницы"}
 
+        # готовим контент
         content = await self._extract_text_content(html_content=html_content)
+
+        # Создаем парсер
+        parser = JsonOutputParser(pydantic_object=ParsingRecipe)
+
         message = [
             SystemMessage(
                 content=(
                     "Ты кулинарный блогер, прекрасно разбирающийся в кулинарии. "
                     "Верни ответ ТОЛЬКО в формате JSON без каких-либо дополнительных текстов, объяснений или комментариев. "
-                    "Формат JSON должен быть точно таким: "
-                    '{"title": "название", "ingredients": {"ингредиент": "количество"}, "description": ["шаг 1", "шаг 2"], "category": "категория"}'
+                    'Формат JSON должен быть таким: {"title": "название", "ingredients": {"ингредиент": "количество"}, '
+                    '"description": ["шаг 1", "шаг 2"], "category": "категория"}'
                 )
             )
         ]
+
         prompt = PromptTemplate(
             input_variables=["content"],
+            partial_variables={"format_instructions": parser.get_format_instructions()},
             template="""
-            Проанализируй этот кулинарный рецепт и верни информацию в JSON формате:
-            {content} 
-
-           Требуемый JSON формат:
-            - title: название блюда
-            - ingredients: список ингредиентов с указанием количества в формате словаря
-            - description: пошаговые этапы приготовления блюда в формате списка ["шаг 1", "шаг 2", ...]
-            - category: к какому виду блюд относится (например, суп, десерт, основное блюдо, закуска и т.д.)
-            """,
+                    Проанализируй этот кулинарный рецепт и верни информацию в JSON формате:
+                    {content}
+                
+                    {format_instructions}
+                
+                    ТОЛЬКО JSON!""",
         )
 
         message.append(HumanMessage(content=prompt.format(content=content)))
 
-        # Получение результата работы модели
+        # Получаем ответ модели
         response = await self.llm.ainvoke(message)
 
         try:
-            # Сериализуем результат из json в словарь
-            res_json = json.loads(response.content)
+            # Десериализация JSON-ответа - парсим ответ
+            res_json = parser.parse(response.content)
         except Exception as e:
-            print(f"Error {e}")
-            return {"status": f"{e}"}
+            print(f"Ошибка при разборе JSON: {e}")
+            return {"status": f"Ошибка парсинга: {e}"}
 
-        state_result = {
+        # Возвращаем результат с нужными полями
+        return {
             "title": res_json["title"],
             "description": res_json["description"],
             "category": res_json["category"],
             "ingredients": res_json["ingredients"],
         }
-        return state_result
 
     async def classify(self, url: str):
         """Основной метод для классификации вакансии/услуги"""
@@ -188,7 +195,7 @@ async def main():
     app = ParsingAgent()
     res = await app.classify(
         # "https://share.google/mhpd7DAqaCSwPcnV8"
-        "https://www.kp.ru/family/eda/retsept-glintvejna/"
+        "https://www.kp.ru/family/eda/retsept-glintvejna"
         # "https://1000.menu/cooking/90658-pasta-orzo-s-gribami-i-slivkami"
         # "https://share.google/iPyxfhgn5gFRPTRNW"
     )
