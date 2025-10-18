@@ -2,15 +2,6 @@ from typing import TypedDict
 from pydantic import BaseModel, Field
 
 
-class ParsingState(TypedDict):
-    url: str
-    title: str
-    description: list[str]
-    category: str
-    ingredients: dict[str, str]
-    status: str
-
-
 class ParsingRecipe(BaseModel):
     title: str = Field(description="название")
     description: list[str] = Field(
@@ -22,3 +13,15 @@ class ParsingRecipe(BaseModel):
     ingredients: dict[str, str] = Field(
         description="список ингредиентов с указанием количества в формате словаря"
     )
+
+
+class RecipesList(BaseModel):
+    recipes: list[ParsingRecipe] = Field(
+        description="список рецептов, найденных на странице"
+    )
+
+
+class ParsingState(TypedDict):
+    url: str
+    status: str
+    recipes: list[ParsingRecipe]

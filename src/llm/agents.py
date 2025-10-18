@@ -15,7 +15,7 @@ from src.core.exceptions import (
     ExceptTimeoutError,
     ExceptClientResponseError,
 )
-from src.llm.llm_states import ParsingState, ParsingRecipe
+from src.llm.llm_states import ParsingState, RecipesList
 from src.core.config import setting
 from src.core.config import configure_logging
 
@@ -118,74 +118,57 @@ class ParsingAgent:
         except ExceptTimeoutError:
             return {"status": "Таймаут при загрузке страницы"}
 
-        # готовим контент
         content = await self._extract_text_content(html_content=html_content)
 
-        # Создаем парсер
-        parser = JsonOutputParser(pydantic_object=ParsingRecipe)
-
-        message = [
-            SystemMessage(
-                content=(
-                    "Ты кулинарный блогер, прекрасно разбирающийся в кулинарии. "
-                    "Верни ответ ТОЛЬКО в формате JSON без каких-либо дополнительных текстов, объяснений или комментариев. "
-                    'Формат JSON должен быть таким: {"title": "название", "ingredients": {"ингредиент": "количество"}, '
-                    '"description": ["шаг 1", "шаг 2"], "category": "категория"}'
-                )
-            )
-        ]
+        # создаём парсер для списка рецептов
+        parser = JsonOutputParser(pydantic_object=RecipesList)
 
         prompt = PromptTemplate(
             input_variables=["content"],
             partial_variables={"format_instructions": parser.get_format_instructions()},
             template="""
-                    Проанализируй этот кулинарный рецепт и верни информацию в JSON формате:
-                    {content}
-                
-                    {format_instructions}
-                
-                    ТОЛЬКО JSON!""",
+                Ты кулинарный блогер, анализирующий текст рецептов.
+                Найди все рецепты на странице и верни их в JSON формате как список.
+                Каждый рецепт должен содержать поля: title, ingredients, description, category.
+            
+                {content}
+            
+                {format_instructions}
+            
+                Только JSON!
+                """,
         )
 
-        message.append(HumanMessage(content=prompt.format(content=content)))
+        messages = [
+            SystemMessage(content="Ты эксперт по кулинарии."),
+            HumanMessage(content=prompt.format(content=content)),
+        ]
 
-        # Получаем ответ модели
-        response = await self.llm.ainvoke(message)
+        response = await self.llm.ainvoke(messages)
 
         try:
-            # Десериализация JSON-ответа - парсим ответ
+            # parser возвращает словарь, содержащий список рецептов
             res_json = parser.parse(response.content)
         except Exception as e:
             print(f"Ошибка при разборе JSON: {e}")
             return {"status": f"Ошибка парсинга: {e}"}
 
-        # Возвращаем результат с нужными полями
-        return {
-            "title": res_json["title"],
-            "description": res_json["description"],
-            "category": res_json["category"],
-            "ingredients": res_json["ingredients"],
-        }
+        return {"status": "Ok", "recipes": res_json["recipes"]}
 
     async def classify(self, url: str):
-        """Основной метод для классификации вакансии/услуги"""
+        """Основной метод для классификации рецептов с веб-страницы"""
         initial_state = {
             "url": url,
-            "title": "",
-            "description": "",
-            "category": "",
-            "ingredients": dict(),
             "status": "Ok",
+            "recipes": [],  # список рецептов, заполняется в ходе работы пайплайна
         }
 
         result = await self.workflow.ainvoke(initial_state)
 
         state_result = {
-            "title": result["title"],
-            "description": result["description"],
-            "category": result["category"],
-            "ingredients": result["ingredients"],
             "status": result["status"],
+            "url": url,
+            "recipes": result.get("recipes", []),
         }
 
         return state_result
@@ -194,16 +177,50 @@ class ParsingAgent:
 async def main():
     app = ParsingAgent()
     res = await app.classify(
-        # "https://share.google/mhpd7DAqaCSwPcnV8"
-        "https://www.kp.ru/family/eda/retsept-glintvejna"
+        "https://share.google/mhpd7DAqaCSwPcnV8"
+        # "https://www.kp.ru/family/eda/retsept-glintvejna"
         # "https://1000.menu/cooking/90658-pasta-orzo-s-gribami-i-slivkami"
         # "https://share.google/iPyxfhgn5gFRPTRNW"
     )
 
-    if res["status"] == "Ok":
-        print(f"Result:\n {res}")
+    if res["status"].lower() == "ok":
+        print("\n===== РЕЗУЛЬТАТ =====\n")
+
+        recipes = res.get("recipes", [])
+        if len(recipes) > 1:
+            print(f"Найдено несколько рецептов: {len(recipes)}\n")
+            multiple = True
+        else:
+            multiple = False
+
+        for index, recipe in enumerate(recipes, start=1):
+            if multiple:
+                print(f"Рецепт №{index}")
+                print("―" * 40)
+
+            print(f"🍽  Название: {recipe.get('title', 'Без названия')}")
+            print(f"📂  Категория: {recipe.get('category', 'Не указано')}\n")
+
+            print("🧂  Ингредиенты:")
+            ingredients = recipe.get("ingredients", {})
+            if ingredients:
+                for ingredient, amount in ingredients.items():
+                    print(f"   • {ingredient}: {amount}")
+            else:
+                print("   (ингредиенты не указаны)")
+
+            print("\n👨‍🍳  Этапы приготовления:")
+            steps = recipe.get("description", [])
+            if steps:
+                for step_num, step in enumerate(steps, start=1):
+                    print(f"   {step_num}. {step}")
+            else:
+                print("   (шаги не указаны)")
+
+            print("\n" + "=" * 50 + "\n")
+
     else:
-        print(res["status"])
+        print(f"Ошибка: {res['status']}")
 
 
 if __name__ == "__main__":
