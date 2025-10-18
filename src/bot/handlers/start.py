@@ -84,13 +84,29 @@ async def handle_http_url(message: Message):
         f"Добавление в группу '{chat_title}' пользователем {user_name} новой ссылки: {url}"
     )
 
-    # Моментальный ответ, чтобы пользователь видел, что бот работает
-    await message.answer("Обрабатываю рецепт, пожалуйста, подождите...")
+    def on_process_done(task: asyncio.Task, msg: Message):
+        async def send_message():
+            if task.exception():
+                error = task.exception()
+                await msg.answer(f"Произошла ошибка при обработке: {error}")
+            else:
+                await msg.answer(
+                    "Рецепт успешно обработан и отправлен в личные сообщения."
+                )
 
-    # Фоновое выполнение без блокировки бота
+        asyncio.create_task(send_message())
+
+    # Создание задачи
     task = asyncio.create_task(
-        process_recipe(bot=message.bot, chat_id=message.chat.id, url=url)
+        process_recipe(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            user_id=message.from_user.id,
+            url=url,
+        )
     )
+
+    task.add_done_callback(lambda t: on_process_done(t, message))
 
 
 # Обработчик текстовых сообщений в группах

@@ -8,31 +8,57 @@ configure_logging(logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def process_recipe(bot: Bot, chat_id: int, url: str):
+async def process_recipe(bot: Bot, chat_id: int, user_id: int, url: str):
     """Фоновая обработка URL рецепта"""
+    """Фоновая обработка URL рецепта с поддержкой нового формата ответа"""
     try:
         agent = ParsingAgent()
-        result = await agent.classify(url)
-        status = result.get("status", "ошибка")
+        res = await agent.classify(url)
 
-        if status != "Ok":
-            await bot.send_message(chat_id, f"Не удалось обработать ссылку: {status}")
+        status = res.get("status", "error").lower()
+        if status != "ok":
+            await bot.send_message(
+                user_id, f"Ошибка: {res.get('status', 'Неизвестная ошибка')}"
+            )
             return
 
-        title = result["title"]
-        ingredients = "\n".join([f"{k}: {v}" for k, v in result["ingredients"].items()])
-        category = result["category"]
-        description = "\n".join(result["description"])
+        recipes = res.get("recipes", [])
+        if not recipes:
+            await bot.send_message(chat_id, "Не найдено рецептов по ссылке.")
+            return
 
-        msg = (
-            f"🍽 *{title}*\n\n"
-            f"Категория: {category}\n\n"
-            f"Ингредиенты:\n{ingredients}\n\n"
-            f"Этапы приготовления:\n{description}"
-        )
+        multiple = len(recipes) > 1
 
-        await bot.send_message(chat_id, msg, parse_mode="Markdown")
+        for index, recipe in enumerate(recipes, start=1):
+            title = recipe.get("title", "Без названия")
+            category = recipe.get("category", "Не указано")
+            ingredients = recipe.get("ingredients", {})
+            steps = recipe.get("description", [])
+
+            msg_parts = [f"В вашу кулинарную книгу добавлен новый рецепт: \n\n"]
+
+            if multiple:
+                msg_parts.append(f"Рецепт №{index}\n{'―'*30}")
+
+            msg_parts.append(f"🍽 *{title}*\n📂 Категория: {category}\n")
+            msg_parts.append("🧂 *Ингредиенты:*")
+
+            if ingredients:
+                msg_parts.extend([f"  • {k}: {v}" for k, v in ingredients.items()])
+            else:
+                msg_parts.append("  (ингредиенты не указаны)")
+
+            msg_parts.append("\n👨‍🍳 *Этапы приготовления:*")
+
+            if steps:
+                msg_parts.extend([f"  {i+1}. {step}" for i, step in enumerate(steps)])
+            else:
+                msg_parts.append("  (шаги не указаны)")
+
+            msg = "\n".join(msg_parts)
+
+            await bot.send_message(user_id, msg, parse_mode="Markdown")
 
     except Exception as e:
         logger.exception(f"Ошибка при обработке рецепта: {e}")
-        await bot.send_message(chat_id, f"Ошибка при обработке ссылки: {e}")
+        await bot.send_message(user_id, f"Ошибка при обработке ссылки: {e}")
