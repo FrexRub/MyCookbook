@@ -50,3 +50,14 @@ class TelegramGroupModel(BaseModel):
             }
         },
     )
+
+
+class RecipeModel(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    title: str = Field(..., description="название рецепта")
+    description: list[str] = Field(description="пошаговые этапы приготовления блюда")
+    category: str = Field(..., description="вид блюда")
+    ingredients: dict[str, str] = Field(..., description="список ингредиентов")
+    url: str = Field(..., description="url рецепта")
+    user_id: list[int] = Field(..., description="список пользователей рецепта")
+    chat_id: list[int] = Field(..., description="список групп")

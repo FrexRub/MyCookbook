@@ -9,6 +9,7 @@ from aiogram.types import Message
 
 from src.bot.parser import process_recipe
 from src.core.config import URL_PATTERN, configure_logging
+from src.core.database import MongoManager
 
 router = Router()
 
@@ -69,7 +70,7 @@ async def goodbye_member(message: Message):
 
 
 @router.message(F.chat.type.in_(["group", "supergroup"]), F.text.contains("http"))
-async def handle_http_url(message: Message):
+async def handle_http_url(message: Message, mongo: MongoManager):
     chat_title = message.chat.title
     user_name = message.from_user.first_name
     text = message.text
@@ -84,29 +85,48 @@ async def handle_http_url(message: Message):
         f"Добавление в группу '{chat_title}' пользователем {user_name} новой ссылки: {url}"
     )
 
-    def on_process_done(task: asyncio.Task, msg: Message):
-        async def send_message():
-            if task.exception():
-                error = task.exception()
-                await msg.answer(f"Произошла ошибка при обработке: {error}")
-            else:
-                await msg.answer(
-                    "Рецепт успешно обработан и отправлен в личные сообщения."
-                )
+    recipe_collection = mongo.get_collection("recipes")
+    user_id = message.from_user.id
+    chat_id = message.chat.id
 
-        asyncio.create_task(send_message())
+    existing_recipes = await recipe_collection.find({"url": url}).to_list(length=None)
 
-    # Создание задачи
-    task = asyncio.create_task(
-        process_recipe(
-            bot=message.bot,
-            chat_id=message.chat.id,
-            user_id=message.from_user.id,
-            url=url,
+    if existing_recipes:
+        result = await recipe_collection.update_many(
+            {"url": url}, {"$addToSet": {"user_id": user_id, "chat_id": chat_id}}
         )
-    )
 
-    task.add_done_callback(lambda t: on_process_done(t, message))
+        if result.modified_count > 0:
+            logger.info(f"Данные добавлены в {result.modified_count} рецепт(ов).")
+        else:
+            logger.info("Рецепт уже содержит данные этого пользователя и чата.")
+
+    else:
+
+        def on_process_done(task: asyncio.Task, msg: Message):
+            async def send_message():
+                if task.exception():
+                    error = task.exception()
+                    await msg.answer(f"Произошла ошибка при обработке: {error}")
+                else:
+                    await msg.answer(
+                        "Рецепт успешно обработан и отправлен в личные сообщения."
+                    )
+
+            asyncio.create_task(send_message())
+
+        # Создание задачи
+        task = asyncio.create_task(
+            process_recipe(
+                bot=message.bot,
+                chat_id=message.chat.id,
+                user_id=message.from_user.id,
+                url=url,
+                mongo=mongo,
+            )
+        )
+
+        task.add_done_callback(lambda t: on_process_done(t, message))
 
 
 # Обработчик текстовых сообщений в группах

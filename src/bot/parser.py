@@ -3,12 +3,16 @@ from aiogram import Bot
 
 from src.core.config import configure_logging
 from src.llm.agents import ParsingAgent
+from src.core.database import MongoManager
+from src.models.mongodb import RecipeModel
 
 configure_logging(logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def process_recipe(bot: Bot, chat_id: int, user_id: int, url: str):
+async def process_recipe(
+    bot: Bot, chat_id: int, user_id: int, url: str, mongo: MongoManager
+):
     """Фоновая обработка URL рецепта"""
     """Фоновая обработка URL рецепта с поддержкой нового формата ответа"""
     try:
@@ -28,6 +32,8 @@ async def process_recipe(bot: Bot, chat_id: int, user_id: int, url: str):
             return
 
         multiple = len(recipes) > 1
+
+        recipe_collection = mongo.get_collection("recipes")
 
         for index, recipe in enumerate(recipes, start=1):
             title = recipe.get("title", "Без названия")
@@ -56,6 +62,23 @@ async def process_recipe(bot: Bot, chat_id: int, user_id: int, url: str):
                 msg_parts.append("  (шаги не указаны)")
 
             msg = "\n".join(msg_parts)
+
+            recipe_data = {
+                "title": title,
+                "description": steps,
+                "category": category,
+                "ingredients": ingredients,
+                "url": url,
+                "user_id": [user_id],
+                "chat_id": [chat_id],
+            }
+
+            result = await recipe_collection.insert_one(recipe_data)
+
+            if result.inserted_id:
+                logger.info("Рецепт успешно добавлен в базу данных!")
+            else:
+                logger.error("Произошла ошибка при добавлении рецепта.")
 
             await bot.send_message(user_id, msg, parse_mode="Markdown")
 
