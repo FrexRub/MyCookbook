@@ -91,6 +91,7 @@ async def handle_http_url(message: Message, mongo: MongoManager):
 
     existing_recipes = await recipe_collection.find({"url": url}).to_list(length=None)
 
+    # если url уже кем нибудь добавлялось, то добавляем данные user_id пользователя (и его группы) без парсинга
     if existing_recipes:
         result = await recipe_collection.update_many(
             {"url": url}, {"$addToSet": {"user_id": user_id, "chat_id": chat_id}}
@@ -108,10 +109,12 @@ async def handle_http_url(message: Message, mongo: MongoManager):
                 if task.exception():
                     error = task.exception()
                     await msg.answer(f"Произошла ошибка при обработке: {error}")
+                    logger.error(f"Произошла ошибка при обработке: {error}")
                 else:
                     await msg.answer(
-                        "Рецепт успешно обработан и отправлен в личные сообщения."
+                        "Рецепт успешно обработан и добавлен в книгу рецептов."
                     )
+                    logger.info("Рецепт успешно обработан и добавлен в БД.")
 
             asyncio.create_task(send_message())
 

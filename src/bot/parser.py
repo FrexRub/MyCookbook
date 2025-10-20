@@ -4,7 +4,6 @@ from aiogram import Bot
 from src.core.config import configure_logging
 from src.llm.agents import ParsingAgent
 from src.core.database import MongoManager
-from src.models.mongodb import RecipeModel
 
 configure_logging(logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,7 +21,8 @@ async def process_recipe(
         status = res.get("status", "error").lower()
         if status != "ok":
             await bot.send_message(
-                user_id, f"Ошибка: {res.get('status', 'Неизвестная ошибка')}"
+                user_id,
+                f"Ошибка обработки рецепта: {res.get('status', 'Неизвестная ошибка')}",
             )
             return
 
@@ -34,6 +34,10 @@ async def process_recipe(
         multiple = len(recipes) > 1
 
         recipe_collection = mongo.get_collection("recipes")
+        if multiple:
+            msg_parts = [f"В вашу кулинарную книгу добавлены новые рецепты: \n\n"]
+        else:
+            msg_parts = [f"В вашу кулинарную книгу добавлен новый рецепт: \n\n"]
 
         for index, recipe in enumerate(recipes, start=1):
             title = recipe.get("title", "Без названия")
@@ -41,27 +45,26 @@ async def process_recipe(
             ingredients = recipe.get("ingredients", {})
             steps = recipe.get("description", [])
 
-            msg_parts = [f"В вашу кулинарную книгу добавлен новый рецепт: \n\n"]
-
             if multiple:
                 msg_parts.append(f"Рецепт №{index}\n{'―'*30}")
 
             msg_parts.append(f"🍽 *{title}*\n📂 Категория: {category}\n")
-            msg_parts.append("🧂 *Ингредиенты:*")
 
-            if ingredients:
-                msg_parts.extend([f"  • {k}: {v}" for k, v in ingredients.items()])
-            else:
-                msg_parts.append("  (ингредиенты не указаны)")
+            # msg_parts.append("🧂 *Ингредиенты:*")
 
-            msg_parts.append("\n👨‍🍳 *Этапы приготовления:*")
+            # if ingredients:
+            #     msg_parts.extend([f"  • {k}: {v}" for k, v in ingredients.items()])
+            # else:
+            #     msg_parts.append("  (ингредиенты не указаны)")
+            #
+            # msg_parts.append("\n👨‍🍳 *Этапы приготовления:*")
+            #
+            # if steps:
+            #     msg_parts.extend([f"  {i+1}. {step}" for i, step in enumerate(steps)])
+            # else:
+            #     msg_parts.append("  (шаги не указаны)")
 
-            if steps:
-                msg_parts.extend([f"  {i+1}. {step}" for i, step in enumerate(steps)])
-            else:
-                msg_parts.append("  (шаги не указаны)")
-
-            msg = "\n".join(msg_parts)
+            # msg = "\n".join(msg_parts)
 
             recipe_data = {
                 "title": title,
@@ -80,7 +83,8 @@ async def process_recipe(
             else:
                 logger.error("Произошла ошибка при добавлении рецепта.")
 
-            await bot.send_message(user_id, msg, parse_mode="Markdown")
+        msg = "\n".join(msg_parts)
+        await bot.send_message(user_id, msg, parse_mode="Markdown")
 
     except Exception as e:
         logger.exception(f"Ошибка при обработке рецепта: {e}")
