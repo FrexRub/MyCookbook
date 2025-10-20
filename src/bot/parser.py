@@ -1,6 +1,15 @@
 import logging
 from aiogram import Bot
 
+from pymongo.errors import (
+    DuplicateKeyError,
+    WriteError,
+    WriteConcernError,
+    OperationFailure,
+    ServerSelectionTimeoutError,
+    PyMongoError,
+)
+
 from src.core.config import configure_logging
 from src.llm.agents import ParsingAgent
 from src.core.database import MongoManager
@@ -76,12 +85,23 @@ async def process_recipe(
                 "chat_id": [chat_id],
             }
 
-            result = await recipe_collection.insert_one(recipe_data)
-
-            if result.inserted_id:
-                logger.info("Рецепт успешно добавлен в базу данных!")
-            else:
-                logger.error("Произошла ошибка при добавлении рецепта.")
+            try:
+                result = await recipe_collection.insert_one(recipe_data)
+                logger.info(f"Рецепт добавлен: {result.inserted_id}")
+            except DuplicateKeyError:
+                logger.warning("Такой рецепт уже существует в базе данных.")
+                await bot.send_message(user_id, "Такой рецепт уже есть в базе.")
+            except (WriteError, WriteConcernError, OperationFailure) as e:
+                logger.error(f"Ошибка записи в MongoDB: {e}")
+                await bot.send_message(user_id, "Ошибка записи в базу данных.")
+            except ServerSelectionTimeoutError:
+                logger.error("Не удалось подключиться к MongoDB (таймаут соединения).")
+                await bot.send_message(user_id, "Сервер базы данных недоступен.")
+            except PyMongoError as e:
+                logger.exception(f"Неизвестная ошибка MongoDB: {e}")
+                await bot.send_message(
+                    user_id, "Произошла внутренняя ошибка при работе с базой данных."
+                )
 
         msg = "\n".join(msg_parts)
         await bot.send_message(user_id, msg, parse_mode="Markdown")

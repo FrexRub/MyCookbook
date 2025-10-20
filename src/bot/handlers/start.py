@@ -93,6 +93,7 @@ async def handle_http_url(message: Message, mongo: MongoManager):
 
     # если url уже кем нибудь добавлялось, то добавляем данные user_id пользователя (и его группы) без парсинга
     if existing_recipes:
+        await message.answer("Рецепт уже занесён в книгу рецептов.")
         result = await recipe_collection.update_many(
             {"url": url}, {"$addToSet": {"user_id": user_id, "chat_id": chat_id}}
         )

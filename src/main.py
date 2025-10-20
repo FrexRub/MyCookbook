@@ -4,6 +4,7 @@ import logging
 from src.bot.commands import set_commands
 from src.bot.handlers.chat_member import router as chat_member_router
 from src.bot.handlers.start import router as start_router
+from src.bot.handlers.chat_recipe import router as chat_recipe
 from src.core.config import bot, configure_logging, dp
 from src.core.database import mongo_manager, mongo_middleware
 
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 dp.include_router(start_router)
 dp.include_router(chat_member_router)
+dp.include_router(chat_recipe)
 
 
 async def main():
