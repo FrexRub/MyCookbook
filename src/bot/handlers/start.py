@@ -71,11 +71,27 @@ async def welcome_new_members(message: Message, mongo: MongoManager):
 
 
 @router.message(F.left_chat_member)
-async def goodbye_member(message: Message):
+async def goodbye_member(message: Message, mongo: MongoManager):
     try:
-        await message.answer(f"{message.left_chat_member.full_name} покинул нас 😢")
+        left_user = message.left_chat_member
+        chat_id = message.chat.id
+
+        await message.answer(f"{left_user.full_name} покинул нас 😢")
+
+        group_collection = mongo.get_collection("groups")
+        result = await group_collection.update_one(
+            {"chat_id": chat_id}, {"$pull": {"chat_users": left_user.id}}
+        )
+
+        if result.modified_count > 0:
+            logger.info(f"Пользователь {left_user.id} удален из группы {chat_id}")
+        else:
+            logger.info(f"Пользователь {left_user.id} не найден в группе {chat_id}")
+
     except TelegramForbiddenError:
         logger.warning("Бот был исключен из чата, невозможно выполнить действия")
+    except Exception as e:
+        logger.error(f"Ошибка при обработке выхода пользователя: {e}")
 
 
 @router.message(F.chat.type.in_(["group", "supergroup"]), F.text.contains("http"))
