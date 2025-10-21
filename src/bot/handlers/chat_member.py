@@ -33,6 +33,7 @@ async def handle_bot_added_as_member(
                 title=chat_title,
                 chat_id=chat_id,
                 status=new_status,
+                chat_users=[user.id],
                 username_tg=user.username,
                 first_name=user.first_name,
                 last_name=user.last_name,

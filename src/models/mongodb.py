@@ -21,6 +21,7 @@ class TelegramGroupModel(BaseModel):
     title: Optional[str] = Field(..., description="Название группы/чата")
     chat_id: int = Field(..., description="ID группы/чата")
     status: str = Field(..., description="статус бота в группе/чате")
+    chat_users: list[int] = Field(description="список id пользователей группы")
     username_tg: Optional[str] = Field(
         description="короткое имя пользователя в формате telegram"
     )
