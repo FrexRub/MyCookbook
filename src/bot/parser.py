@@ -22,7 +22,6 @@ async def process_recipe(
     bot: Bot, chat_id: int, user_id: int, url: str, mongo: MongoManager
 ):
     """Фоновая обработка URL рецепта"""
-    """Фоновая обработка URL рецепта с поддержкой нового формата ответа"""
     try:
         agent = ParsingAgent()
         res = await agent.classify(url)
@@ -44,9 +43,9 @@ async def process_recipe(
 
         recipe_collection = mongo.get_collection("recipes")
         if multiple:
-            msg_parts = [f"В вашу кулинарную книгу добавлены новые рецепты: \n\n"]
+            msg_parts = [f"В вашу кулинарную книгу добавлены новые рецепты: \n"]
         else:
-            msg_parts = [f"В вашу кулинарную книгу добавлен новый рецепт: \n\n"]
+            msg_parts = [f"В вашу кулинарную книгу добавлен новый рецепт: \n"]
 
         for index, recipe in enumerate(recipes, start=1):
             title = recipe.get("title", "Без названия")

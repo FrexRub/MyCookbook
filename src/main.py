@@ -21,11 +21,19 @@ async def main():
     await mongo_manager.connect()
     dp.startup.register(set_commands)
     dp.update.middleware(mongo_middleware)
+
     try:
         await dp.start_polling(bot)
     finally:
+        # Полное завершение всех задач
+        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
         await mongo_manager.close()
-        await bot.session.close()
+        if bot.session:
+            await bot.session.close()
 
 
 if __name__ == "__main__":
@@ -33,5 +41,7 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("Чат прерван пользователем")
-    else:
+    except Exception as e:
+        print(f"Произошла ошибка: {e}")
+    finally:
         print("До свидания")
