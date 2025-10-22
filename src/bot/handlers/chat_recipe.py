@@ -28,8 +28,6 @@ def create_recipe_inline_kb(recipes: list[dict]) -> InlineKeyboardMarkup:
         title = recipe.get("title", "Без названия")
         id = recipe.get("_id")
         builder.row(InlineKeyboardButton(text=title, callback_data=f"id_{id}"))
-    # Добавляем кнопку "На главную"
-    builder.row(InlineKeyboardButton(text="На главную", callback_data="back_home"))
     # Настраиваем размер клавиатуры
     builder.adjust(1)
     return builder.as_markup()
@@ -82,6 +80,7 @@ async def my_recipes_info(message: Message, bot: Bot, mongo: MongoManager):
             for title in titles:
                 msg_lines.append(f" 🍽 {title}")
 
+        msg_lines.append("\n📂 * Категории блюд *:\n")
         await bot.send_message(
             message.chat.id,
             "\n".join(msg_lines),
@@ -130,20 +129,21 @@ async def group_recipes_info(message: Message, bot: Bot, mongo: MongoManager):
             category = recipe.get("category", "Без категории")
             dict_recipes.setdefault(category, []).append(title)
 
-        # Формируем сообщение для пользователя
-        msg_lines = [f"📚 *Рецепты группы {group['title']}:*"]
+        # Формируем читаемое сообщение
+        msg_lines = ["📚 *Рецепты вашей группы:*"]
+        categories: list[str] = list()
         for category, titles in dict_recipes.items():
             msg_lines.append(f"\n📂 *{category}*:")
-            msg_lines.extend([f" 🍽 {t}" for t in titles])
+            categories.append(category)
+            for title in titles:
+                msg_lines.append(f" 🍽 {title}")
 
-        await bot.send_message(
-            message.chat.id, "\n".join(msg_lines), parse_mode="Markdown"
-        )
+        msg_lines.append("\n📂 * Категории блюд *:\n")
         await bot.send_message(
             message.chat.id,
-            "Рецепты:",
+            "\n".join(msg_lines),
             parse_mode="Markdown",
-            reply_markup=create_recipe_inline_kb(recipes),
+            reply_markup=create_categories_inline_kb(categories),
         )
 
     except Exception as e:
@@ -207,7 +207,7 @@ async def cmd_category(call: CallbackQuery, mongo: MongoManager):
     cursor = recipe_collection.find({"category": category}, {"title": 1})
     recipes = await cursor.to_list(length=100)
 
-    msg_text = f"Рецепты категории {category}:\n\n"
+    msg_text = f"🍽 Рецепты категории {category}:\n\n"
     async with ChatActionSender(
         bot=setting.bot, chat_id=call.from_user.id, action="typing"
     ):
