@@ -58,22 +58,6 @@ async def process_recipe(
 
             msg_parts.append(f"🍽 *{title}*\n📂 Категория: {category}\n")
 
-            # msg_parts.append("🧂 *Ингредиенты:*")
-
-            # if ingredients:
-            #     msg_parts.extend([f"  • {k}: {v}" for k, v in ingredients.items()])
-            # else:
-            #     msg_parts.append("  (ингредиенты не указаны)")
-            #
-            # msg_parts.append("\n👨‍🍳 *Этапы приготовления:*")
-            #
-            # if steps:
-            #     msg_parts.extend([f"  {i+1}. {step}" for i, step in enumerate(steps)])
-            # else:
-            #     msg_parts.append("  (шаги не указаны)")
-
-            # msg = "\n".join(msg_parts)
-
             recipe_data = {
                 "title": title,
                 "description": steps,
