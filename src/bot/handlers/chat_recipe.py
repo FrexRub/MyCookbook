@@ -48,7 +48,7 @@ def create_categories_inline_kb(categories: list[str]) -> InlineKeyboardMarkup:
 async def my_recipes_info(message: Message, bot: Bot, mongo: MongoManager) -> None:
     """Обработка команды /my_recipes, выводит рецепты пользователя"""
     recipe_collection = mongo.get_collection("recipes")
-    user_id = message.from_user.id
+    user_id: int = message.from_user.id
 
     try:
         # Находим все рецепты, где user_id содержится в списке user_id документа
@@ -152,10 +152,10 @@ async def find_recipe_by_id(call: CallbackQuery, mongo: MongoManager) -> None:
     """Обработка Callback c началом id_, выводит рецепт с указанным id"""
     await call.answer()
     try:
-        id_rec = call.data.replace("id_", "")
+        id_rec: str = call.data.replace("id_", "")
 
         if not ObjectId.is_valid(id_rec):
-            await call.message.answer("Неверный формат ID рецепта")
+            logger.error("Неверный формат ID рецепта")
             return
 
         recipe_collection = mongo.get_collection("recipes")
@@ -184,7 +184,7 @@ async def find_recipe_by_id(call: CallbackQuery, mongo: MongoManager) -> None:
         msg = "\n".join(msg_parts)
 
         async with ChatActionSender(bot=setting.bot, chat_id=call.from_user.id, action="typing"):
-            await asyncio.sleep(2)
+            await asyncio.sleep(0)
             await call.message.answer(msg, parse_mode="Markdown", reply_markup=None)
     except InvalidId:
         await call.message.answer("Неверный формат ID рецепта")
@@ -204,5 +204,5 @@ async def cmd_category(call: CallbackQuery, mongo: MongoManager) -> None:
 
     msg_text = f"🍽 Рецепты категории {category}:\n\n"
     async with ChatActionSender(bot=setting.bot, chat_id=call.from_user.id, action="typing"):
-        await asyncio.sleep(2)
+        await asyncio.sleep(0)
         await call.message.answer(msg_text, reply_markup=create_recipe_inline_kb(recipes))

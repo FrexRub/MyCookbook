@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class MongoManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self.client: Optional[AsyncClient] = None
         self.db = None
         self._is_connected: bool = False
@@ -37,9 +37,7 @@ class MongoManager:
 
     def get_collection(self, name: str):
         if not self._is_connected or self.db is None:
-            raise RuntimeError(
-                "MongoDB не подключена. Вызовите connect() перед использованием."
-            )
+            raise RuntimeError("MongoDB не подключена. Вызовите connect() перед использованием.")
         return self.db[name]
 
 

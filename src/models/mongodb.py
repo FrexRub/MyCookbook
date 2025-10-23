@@ -18,16 +18,17 @@ class StatusBot(str, Enum):
 
 class TelegramGroupModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
-    title: Optional[str] = Field(..., description="Название группы/чата")
+    title: Optional[str] = Field(default=None, description="Название группы/чата")
     chat_id: int = Field(..., description="ID группы/чата")
     status: str = Field(..., description="статус бота в группе/чате")
-    chat_users: list[int] = Field(description="список id пользователей группы")
-    username_tg: Optional[str] = Field(description="короткое имя пользователя в формате telegram")
-    first_name: Optional[str] = Field(description="имя администратора")
-    last_name: Optional[str] = Field(description="фамилия администратора")
-    user_id: Optional[int] = Field(description="ID администратора")
+    chat_users: list[int] = Field(default_factory=list, description="список id пользователей группы")
+    username_tg: Optional[str] = Field(default=None, description="короткое имя пользователя в формате telegram")
+    first_name: Optional[str] = Field(default=None, description="имя администратора")
+    last_name: Optional[str] = Field(default=None, description="фамилия администратора")
+    user_id: Optional[int] = Field(default=None, description="ID администратора")
     created_at: datetime = Field(default_factory=datetime.utcnow, description="время создания")
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="время обновления")
+
     model_config = ConfigDict(
         populate_by_name=True,
         arbitrary_types_allowed=True,

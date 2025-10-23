@@ -6,7 +6,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
 from openai import OpenAI
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, SecretStr, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).parent.parent.parent
@@ -23,9 +23,9 @@ def configure_logging(level: int = logging.INFO) -> None:
 
 
 class LlmSettings(BaseSettings):
-    openrouter_api_key: SecretStr
-    base_url_llm: str
-    model_llm: str
+    openrouter_api_key: SecretStr = Field(default=SecretStr(""), description="OpenRouter API key")
+    base_url_llm: str = Field(default="", description="Base URL for LLM")
+    model_llm: str = Field(default="", description="LLM model name")
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
@@ -36,8 +36,8 @@ class LlmSettings(BaseSettings):
 
 
 class BotSettings(BaseSettings):
-    bot_token: SecretStr
-    admin_id: str
+    bot_token: SecretStr = Field(default=SecretStr(""), description="Token for Telegramm Bot")
+    admin_id: str = Field(default="", description="id admins of grope")
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
@@ -65,9 +65,9 @@ class RedisSettings(BaseSettings):
 
 
 class MongoSettings(BaseSettings):
-    mongo_initdb_root_username: str
-    mongo_initdb_root_password: str
-    mongo_initdb_database: str
+    mongo_initdb_root_username: str = ""
+    mongo_initdb_root_password: str = ""
+    mongo_initdb_database: str = ""
     mongo_initdb_host: str = "localhost"
     mongo_initdb_port: int = 27017
 
@@ -84,9 +84,7 @@ class MongoSettings(BaseSettings):
         # mongodb://localhost:27017
         res: str = "mongodb://"
         if self.mongo_initdb_root_username:
-            res += (
-                f"{self.mongo_initdb_root_username}:{self.mongo_initdb_root_password}@"
-            )
+            res += f"{self.mongo_initdb_root_username}:{self.mongo_initdb_root_password}@"
 
         res += f"{self.mongo_initdb_host}:{self.mongo_initdb_port}"
         return res

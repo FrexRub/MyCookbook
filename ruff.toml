@@ -10,3 +10,8 @@ line-length = 120
 [lint]
 preview = true
 select = ["E", "F", "I", "C90"]
+
+[[tool.mypy.overrides]]
+module = "async_pymongo"
+ignore_missing_imports = true
+disable_error_code = ["union-attr"]
