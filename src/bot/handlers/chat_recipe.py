@@ -1,17 +1,17 @@
-import logging
 import asyncio
-from bson import ObjectId
-from bson.errors import InvalidId
+import logging
 
-from aiogram import Bot, Router, F
+from aiogram import Bot, F, Router
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import CallbackQuery, Message
 from aiogram.utils.chat_action import ChatActionSender
 from aiogram.utils.keyboard import (
     InlineKeyboardBuilder,
-    InlineKeyboardMarkup,
     InlineKeyboardButton,
+    InlineKeyboardMarkup,
 )
+from bson import ObjectId
+from bson.errors import InvalidId
 
 from src.core.config import configure_logging, setting
 from src.core.database import MongoManager
@@ -176,7 +176,7 @@ async def find_recipe_by_id(call: CallbackQuery, mongo: MongoManager) -> None:
         msg_parts.append("\n👨‍🍳 *Этапы приготовления:*")
 
         if steps:
-            msg_parts.extend([f"  {i+1}. {step}" for i, step in enumerate(steps)])
+            msg_parts.extend([f"  {i + 1}. {step}" for i, step in enumerate(steps)])
         else:
             msg_parts.append("  (шаги не указаны)")
 

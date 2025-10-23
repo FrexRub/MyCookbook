@@ -5,6 +5,7 @@ line-length = 120
 [lint.per-file-ignores]
   # init modules can contain the local imports, logic, unused imports
 "__init__.py" = ["F401"]
+"parser.py" = ["C901"]
 
 [lint]
 preview = true

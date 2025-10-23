@@ -1,26 +1,31 @@
 import logging
-from aiogram import Bot
 
+from aiogram import Bot
 from pymongo.errors import (
     DuplicateKeyError,
-    WriteError,
-    WriteConcernError,
     OperationFailure,
-    ServerSelectionTimeoutError,
     PyMongoError,
+    ServerSelectionTimeoutError,
+    WriteConcernError,
+    WriteError,
 )
 
 from src.core.config import configure_logging
-from src.llm.agents import ParsingAgent
 from src.core.database import MongoManager
+from src.llm.agents import ParsingAgent
 
 configure_logging(logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+# noqa: C901
 async def process_recipe(
-    bot: Bot, chat_id: int, user_id: int, url: str, mongo: MongoManager
-):
+    bot: Bot,
+    chat_id: int,
+    user_id: int,
+    url: str,
+    mongo: MongoManager,
+) -> None:
     """Фоновая обработка URL рецепта"""
     try:
         agent = ParsingAgent()
@@ -43,9 +48,9 @@ async def process_recipe(
 
         recipe_collection = mongo.get_collection("recipes")
         if multiple:
-            msg_parts = [f"В вашу кулинарную книгу добавлены новые рецепты: \n"]
+            msg_parts = ["В вашу кулинарную книгу добавлены новые рецепты: \n"]
         else:
-            msg_parts = [f"В вашу кулинарную книгу добавлен новый рецепт: \n"]
+            msg_parts = ["В вашу кулинарную книгу добавлен новый рецепт: \n"]
 
         for index, recipe in enumerate(recipes, start=1):
             title = recipe.get("title", "Без названия")
@@ -54,7 +59,7 @@ async def process_recipe(
             steps = recipe.get("description", [])
 
             if multiple:
-                msg_parts.append(f"Рецепт №{index}\n{'―'*30}")
+                msg_parts.append(f"Рецепт №{index}\n{'―' * 30}")
 
             msg_parts.append(f"🍽 *{title}*\n📂 Категория: {category}\n")
 
@@ -82,9 +87,7 @@ async def process_recipe(
                 await bot.send_message(user_id, "Сервер базы данных недоступен.")
             except PyMongoError as e:
                 logger.exception(f"Неизвестная ошибка MongoDB: {e}")
-                await bot.send_message(
-                    user_id, "Произошла внутренняя ошибка при работе с базой данных."
-                )
+                await bot.send_message(user_id, "Произошла внутренняя ошибка при работе с базой данных.")
 
         msg = "\n".join(msg_parts)
         await bot.send_message(user_id, msg, parse_mode="Markdown")

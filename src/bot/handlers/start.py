@@ -1,6 +1,6 @@
+import asyncio
 import logging
 import re
-import asyncio
 
 from aiogram import F, Router
 from aiogram.exceptions import TelegramForbiddenError
