@@ -74,15 +74,15 @@ async def goodbye_member(message: Message, mongo: MongoManager) -> None:
         left_user = message.left_chat_member
         chat_id = message.chat.id
 
-        await message.answer(f"{left_user.full_name} покинул нас 😢")
+        await message.answer(f"{left_user.full_name} покинул нас 😢")  # type: ignore
 
         group_collection = mongo.get_collection("groups")
-        result = await group_collection.update_one({"chat_id": chat_id}, {"$pull": {"chat_users": left_user.id}})
+        result = await group_collection.update_one({"chat_id": chat_id}, {"$pull": {"chat_users": left_user.id}})  # type: ignore
 
         if result.modified_count > 0:
-            logger.info(f"Пользователь {left_user.id} удален из группы {chat_id}")
+            logger.info(f"Пользователь {left_user.id} удален из группы {chat_id}")  # type: ignore
         else:
-            logger.info(f"Пользователь {left_user.id} не найден в группе {chat_id}")
+            logger.info(f"Пользователь {left_user.id} не найден в группе {chat_id}")  # type: ignore
 
     except TelegramForbiddenError:
         logger.warning("Бот был исключен из чата, невозможно выполнить действия")
