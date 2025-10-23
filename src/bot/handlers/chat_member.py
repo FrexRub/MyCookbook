@@ -15,13 +15,11 @@ configure_logging(logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def handle_bot_added_as_member(
-    chat_member: ChatMemberUpdated, bot: Bot, mongo: MongoManager
-):
+async def handle_bot_added_as_member(chat_member: ChatMemberUpdated, bot: Bot, mongo: MongoManager):
     """Обработка добавления бота как участника"""
-    chat_id = chat_member.chat.id
-    new_status = chat_member.new_chat_member.status
-    chat_title = chat_member.chat.title
+    chat_id: int = chat_member.chat.id
+    new_status: str = chat_member.new_chat_member.status
+    chat_title: str = chat_member.chat.title
 
     try:
         admins = await bot.get_chat_administrators(chat_id)
@@ -66,12 +64,10 @@ async def handle_bot_added_as_member(
         logger.error(f"Ошибка при обработке добавления бота: {e}")
 
 
-async def handle_bot_removed(
-    chat_member: ChatMemberUpdated, bot: Bot, mongo: MongoManager
-):
+async def handle_bot_removed(chat_member: ChatMemberUpdated, bot: Bot, mongo: MongoManager):
     """Обработка удаления бота из чата"""
-    chat_id = chat_member.chat.id
-    chat_title = chat_member.chat.title
+    chat_id: int = chat_member.chat.id
+    chat_title: str = chat_member.chat.title
 
     try:
         group_collection = mongo.get_collection("groups")
@@ -80,7 +76,7 @@ async def handle_bot_removed(
         group_data = await group_collection.find_one({"chat_id": chat_id})
 
         if group_data and group_data.get("user_id"):
-            admin_user_id = group_data["user_id"]
+            admin_user_id: int = group_data["user_id"]
 
             # Отправляем сообщение администратору
             try:
@@ -89,7 +85,7 @@ async def handle_bot_removed(
                     f"📋 Группа: {chat_title}\n"
                     f"⏰ Время: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
                     f"Чтобы добавить бота обратно, используйте ссылку:\n"
-                    f"https://t.me/your_bot_username?startgroup=true"
+                    f"https://t.me/CookBookAI_Bot?startgroup=true"
                 )
 
                 await bot.send_message(chat_id=admin_user_id, text=message_text)
@@ -110,17 +106,14 @@ async def handle_bot_removed(
 
 
 @router.my_chat_member()
-async def handle_bot_status_change(
-    chat_member: ChatMemberUpdated, bot: Bot, mongo: MongoManager
-):
+async def handle_bot_status_change(chat_member: ChatMemberUpdated, bot: Bot, mongo: MongoManager):
+    """Обработка события изменения статуса бота"""
     old_status = chat_member.old_chat_member.status
     new_status = chat_member.new_chat_member.status
     chat_id = chat_member.chat.id
     chat_title = chat_member.chat.title
 
-    logger.info(
-        f"Статус бота изменился: {chat_title} (ID: {chat_id}) - {old_status} -> {new_status}"
-    )
+    logger.info(f"Статус бота изменился: {chat_title} (ID: {chat_id}) - {old_status} -> {new_status}")
 
     # Бота удалили из группы - основная обработка
     if new_status in ["kicked", "left"]:
@@ -130,9 +123,7 @@ async def handle_bot_status_change(
             await handle_bot_removed(chat_member, bot, mongo)
 
         except TelegramForbiddenError:
-            logger.info(
-                f"Бот был исключен из чата {chat_id}, невозможно выполнить действия"
-            )
+            logger.info(f"Бот был исключен из чата {chat_id}, невозможно выполнить действия")
 
         return
 

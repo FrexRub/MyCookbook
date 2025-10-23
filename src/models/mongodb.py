@@ -22,18 +22,12 @@ class TelegramGroupModel(BaseModel):
     chat_id: int = Field(..., description="ID группы/чата")
     status: str = Field(..., description="статус бота в группе/чате")
     chat_users: list[int] = Field(description="список id пользователей группы")
-    username_tg: Optional[str] = Field(
-        description="короткое имя пользователя в формате telegram"
-    )
-    first_name: Optional[str] = Field(description="имя пользователя")
-    last_name: Optional[str] = Field(description="фамилия пользователя")
+    username_tg: Optional[str] = Field(description="короткое имя пользователя в формате telegram")
+    first_name: Optional[str] = Field(description="имя администратора")
+    last_name: Optional[str] = Field(description="фамилия администратора")
     user_id: Optional[int] = Field(description="ID администратора")
-    created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="время создания"
-    )
-    updated_at: datetime = Field(
-        default_factory=datetime.utcnow, description="время обновления"
-    )
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="время создания")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="время обновления")
     model_config = ConfigDict(
         populate_by_name=True,
         arbitrary_types_allowed=True,

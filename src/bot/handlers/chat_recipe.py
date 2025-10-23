@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_recipe_inline_kb(recipes: list[dict]) -> InlineKeyboardMarkup:
+    """Создание инлайн-клавиатуры с названиями рецептов"""
     builder = InlineKeyboardBuilder()
     for recipe in recipes:
         title = recipe.get("title", "Без названия")
@@ -34,18 +35,18 @@ def create_recipe_inline_kb(recipes: list[dict]) -> InlineKeyboardMarkup:
 
 
 def create_categories_inline_kb(categories: list[str]) -> InlineKeyboardMarkup:
+    """Создание инлайн-клавиатуры с названиями категорий блюд"""
     builder = InlineKeyboardBuilder()
     for category in categories:
-        builder.row(
-            InlineKeyboardButton(text=category, callback_data=f"ctg_{category}")
-        )
+        builder.row(InlineKeyboardButton(text=category, callback_data=f"ctg_{category}"))
 
     builder.adjust(1)
     return builder.as_markup()
 
 
 @router.message(Command("my_recipes"))
-async def my_recipes_info(message: Message, bot: Bot, mongo: MongoManager):
+async def my_recipes_info(message: Message, bot: Bot, mongo: MongoManager) -> None:
+    """Обработка команды /my_recipes, выводит рецепты пользователя"""
     recipe_collection = mongo.get_collection("recipes")
     user_id = message.from_user.id
 
@@ -59,9 +60,7 @@ async def my_recipes_info(message: Message, bot: Bot, mongo: MongoManager):
         recipes = await cursor.to_list(length=100)  # ограничение на количество записей
 
         if not recipes:
-            await bot.send_message(
-                message.chat.id, "🍳 У вас пока нет сохранённых рецептов."
-            )
+            await bot.send_message(message.chat.id, "🍳 У вас пока нет сохранённых рецептов.")
             return
 
         # Группируем рецепты по категориям
@@ -80,7 +79,8 @@ async def my_recipes_info(message: Message, bot: Bot, mongo: MongoManager):
             for title in titles:
                 msg_lines.append(f" 🍽 {title}")
 
-        msg_lines.append("\n📂 * Категории блюд *:\n")
+        msg_lines.append("\n 👇 * Для просмотра рецепта выберите категорию *:\n")
+        msg_lines.append("📂 * Категории блюд *:\n")
         await bot.send_message(
             message.chat.id,
             "\n".join(msg_lines),
@@ -93,8 +93,9 @@ async def my_recipes_info(message: Message, bot: Bot, mongo: MongoManager):
 
 
 @router.message(Command("group_recipes"))
-async def group_recipes_info(message: Message, bot: Bot, mongo: MongoManager):
-    user_id = message.from_user.id
+async def group_recipes_info(message: Message, bot: Bot, mongo: MongoManager) -> None:
+    """Обработка команды /group_recipes, выводит рецепты группы"""
+    user_id: int = message.from_user.id
     groups_collection = mongo.get_collection("groups")
     recipe_collection = mongo.get_collection("recipes")
 
@@ -111,15 +112,11 @@ async def group_recipes_info(message: Message, bot: Bot, mongo: MongoManager):
         chat_id = group["chat_id"]
 
         # Получаем все рецепты для найденной группы
-        cursor = recipe_collection.find(
-            {"chat_id": chat_id}, {"title": 1, "category": 1}
-        )
+        cursor = recipe_collection.find({"chat_id": chat_id}, {"title": 1, "category": 1})
         recipes = await cursor.to_list(length=100)
 
         if not recipes:
-            await bot.send_message(
-                message.chat.id, "🍳 В этой группе пока нет сохранённых рецептов."
-            )
+            await bot.send_message(message.chat.id, "🍳 В этой группе пока нет сохранённых рецептов.")
             return
 
         # Группируем рецепты по категориям
@@ -151,7 +148,8 @@ async def group_recipes_info(message: Message, bot: Bot, mongo: MongoManager):
 
 
 @router.callback_query(F.data.startswith("id_"))
-async def find_recipe_by_id(call: CallbackQuery, mongo: MongoManager):
+async def find_recipe_by_id(call: CallbackQuery, mongo: MongoManager) -> None:
+    """Обработка Callback c началом id_, выводит рецепт с указанным id"""
     await call.answer()
     try:
         id_rec = call.data.replace("id_", "")
@@ -166,9 +164,7 @@ async def find_recipe_by_id(call: CallbackQuery, mongo: MongoManager):
         ingredients = recipe.get("ingredients", {})
         steps = recipe.get("description", [])
 
-        msg_parts: list[str] = [
-            f"🍽 *{recipe['title']}*\n\n📂 Категория: {recipe['category']}\n"
-        ]
+        msg_parts: list[str] = [f"🍽 *{recipe['title']}*\n\n📂 Категория: {recipe['category']}\n"]
 
         msg_parts.append("🧂 *Ингредиенты:*")
 
@@ -187,9 +183,7 @@ async def find_recipe_by_id(call: CallbackQuery, mongo: MongoManager):
         msg_parts.append(f"\n🌐 *[cтраница рецепта]({recipe['url']})*")
         msg = "\n".join(msg_parts)
 
-        async with ChatActionSender(
-            bot=setting.bot, chat_id=call.from_user.id, action="typing"
-        ):
+        async with ChatActionSender(bot=setting.bot, chat_id=call.from_user.id, action="typing"):
             await asyncio.sleep(2)
             await call.message.answer(msg, parse_mode="Markdown", reply_markup=None)
     except InvalidId:
@@ -200,7 +194,8 @@ async def find_recipe_by_id(call: CallbackQuery, mongo: MongoManager):
 
 
 @router.callback_query(F.data.startswith("ctg_"))
-async def cmd_category(call: CallbackQuery, mongo: MongoManager):
+async def cmd_category(call: CallbackQuery, mongo: MongoManager) -> None:
+    """Обработка Callback c началом ctg_, выводит рецепты определенной категории"""
     await call.answer()
     category = call.data.replace("ctg_", "")
     recipe_collection = mongo.get_collection("recipes")
@@ -208,10 +203,6 @@ async def cmd_category(call: CallbackQuery, mongo: MongoManager):
     recipes = await cursor.to_list(length=100)
 
     msg_text = f"🍽 Рецепты категории {category}:\n\n"
-    async with ChatActionSender(
-        bot=setting.bot, chat_id=call.from_user.id, action="typing"
-    ):
+    async with ChatActionSender(bot=setting.bot, chat_id=call.from_user.id, action="typing"):
         await asyncio.sleep(2)
-        await call.message.answer(
-            msg_text, reply_markup=create_recipe_inline_kb(recipes)
-        )
+        await call.message.answer(msg_text, reply_markup=create_recipe_inline_kb(recipes))
