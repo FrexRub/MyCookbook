@@ -7,8 +7,7 @@ from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
-from src.bot.parser import process_recipe
-from src.core.config import URL_PATTERN, configure_logging
+from src.core.config import URL_PATTERN, configure_logging, broker
 from src.core.database import MongoManager
 
 router = Router()
@@ -124,31 +123,40 @@ async def handle_http_url(message: Message, mongo: MongoManager) -> None:
             logger.info("Рецепт уже содержит данные этого пользователя и чата.")
 
     else:
-
-        def on_process_done(task: asyncio.Task, msg: Message):
-            async def send_message():
-                if task.exception():
-                    error = task.exception()
-                    await msg.answer(f"Произошла ошибка при обработке: {error}")
-                    logger.error(f"Произошла ошибка при обработке: {error}")
-                else:
-                    await msg.answer("Рецепт успешно обработан и добавлен в книгу рецептов.")
-                    logger.info("Рецепт успешно обработан и добавлен в БД.")
-
-            asyncio.create_task(send_message())
-
-        # Создание задачи
-        task = asyncio.create_task(
-            process_recipe(
-                bot=message.bot,
-                chat_id=message.chat.id,
-                user_id=message.from_user.id,
-                url=url,
-                mongo=mongo,
-            )
+        await broker.publish(
+            {
+                "url": url,
+                "user_id": message.from_user.id,
+                "chat_id": message.chat.id,
+            },
+            queue="recipe_processing_queue",
         )
+        await message.answer("📊 Запрос отправлен!")
 
-        task.add_done_callback(lambda t: on_process_done(t, message))
+        # def on_process_done(task: asyncio.Task, msg: Message):
+        #     async def send_message():
+        #         if task.exception():
+        #             error = task.exception()
+        #             await msg.answer(f"Произошла ошибка при обработке: {error}")
+        #             logger.error(f"Произошла ошибка при обработке: {error}")
+        #         else:
+        #             await msg.answer("Рецепт успешно обработан и добавлен в книгу рецептов.")
+        #             logger.info("Рецепт успешно обработан и добавлен в БД.")
+        #
+        #     asyncio.create_task(send_message())
+        #
+        # # Создание задачи
+        # task = asyncio.create_task(
+        #     process_recipe(
+        #         bot=message.bot,
+        #         chat_id=message.chat.id,
+        #         user_id=message.from_user.id,
+        #         url=url,
+        #         mongo=mongo,
+        #     )
+        # )
+        #
+        # task.add_done_callback(lambda t: on_process_done(t, message))
 
 
 @router.message(F.chat.type.in_(["group", "supergroup"]), F.text)
