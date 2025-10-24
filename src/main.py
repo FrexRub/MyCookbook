@@ -5,7 +5,7 @@ from src.bot.commands import set_commands
 from src.bot.handlers.chat_member import router as chat_member_router
 from src.bot.handlers.chat_recipe import router as chat_recipe
 from src.bot.handlers.start import router as start_router
-from src.core.config import bot, configure_logging, dp
+from src.core.config import bot, configure_logging, dp, broker
 from src.core.database import mongo_manager, mongo_middleware
 
 configure_logging(logging.INFO)
@@ -22,6 +22,9 @@ async def main():
     dp.startup.register(set_commands)
     dp.update.middleware(mongo_middleware)
 
+    await broker.connect()
+    logger.info("Подключение к RabbitMQ установлено")
+
     try:
         await dp.start_polling(bot)
     finally:
@@ -31,6 +34,7 @@ async def main():
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
 
+        await broker.close()
         await mongo_manager.close()
         if bot.session:
             await bot.session.close()

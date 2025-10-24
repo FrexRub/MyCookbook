@@ -5,9 +5,11 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
+from faststream.rabbit import RabbitBroker
 from openai import OpenAI
 from pydantic import BaseModel, SecretStr, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 BASE_DIR = Path(__file__).parent.parent.parent
 
@@ -90,11 +92,30 @@ class MongoSettings(BaseSettings):
         return res
 
 
+class RabitMQSettings(BaseSettings):
+    rabbitmq_default_user: str = Field(default="guest", description="Admin name for RabbitMQ")
+    rabbitmq_default_pass: str = Field(default="guest", description="Password user for RabbitMQ")
+    rabbitmq_default_host: str = Field(default="localhost", description="Hostname")
+    rabbitmq_default_port: int = Field(default=5672, description="Hostname")
+
+    model_config = SettingsConfigDict(
+        env_file=BASE_DIR / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",  # игнорирование наличия других полей в .env - файле
+        case_sensitive=False,  # регистронезависимость
+    )
+
+    @property
+    def url(self):
+        return f"amqp://{self.rabbitmq_default_user}:{self.rabbitmq_default_pass}@{self.rabbitmq_default_host}:{self.rabbitmq_default_port}/"
+
+
 class Setting(BaseModel):
     llm: LlmSettings = LlmSettings()
     bot: BotSettings = BotSettings()
     redis: RedisSettings = RedisSettings()
     mongo: MongoSettings = MongoSettings()
+    rabbitmq: RabitMQSettings = RabitMQSettings()
 
 
 setting = Setting()
@@ -112,3 +133,5 @@ bot = Bot(
 storage = RedisStorage.from_url(url=setting.redis.url)
 
 dp = Dispatcher(storage=storage)
+
+broker = RabbitBroker(setting.rabbitmq.url)
