@@ -1,4 +1,6 @@
 import logging
+import re
+import string
 from pathlib import Path
 
 from aiogram import Bot, Dispatcher
@@ -10,10 +12,16 @@ from openai import OpenAI
 from pydantic import BaseModel, SecretStr, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 BASE_DIR = Path(__file__).parent.parent
-# BASE_DIR = Path(__file__).parent.parent.parent
 
 URL_PATTERN = r"https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+[/\w\.-]*\??[/\w\.-=&%]*"
+HEADER_PATTERN = re.compile(r"^(#+)\s(.+)")  # для заголовков документов в Markdown
+PUNCTUATION_PATTERN = re.compile(f"[{re.escape(string.punctuation)}]")  # для удаления пунктуации
+WHITESPACE_PATTERN = re.compile(r"\s+")  # для удаления лишних пробелов
+
+CHROMA_PATH = BASE_DIR / "recipe_chroma_db"
+COLLECTION_NAME = "recipe_data"
 
 
 def configure_logging(level: int = logging.INFO) -> None:
@@ -116,6 +124,8 @@ class Setting(BaseModel):
     redis: RedisSettings = RedisSettings()
     mongo: MongoSettings = MongoSettings()
     rabbitmq: RabitMQSettings = RabitMQSettings()
+    max_chunk_size: int = 512
+    chunk_overlap: int = 50
 
 
 setting = Setting()

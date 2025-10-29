@@ -3,11 +3,14 @@ import logging
 from faststream import FastStream
 
 from consumer.core.config import bot, broker
-from consumer.parser import process_recipe
+from consumer.vectoring.models.chroma import chrome
+from consumer.utils.parser import process_recipe
 from consumer.core.database import MongoManager
+
 
 logger = logging.getLogger(__name__)
 mongo_manager = MongoManager()
+
 app = FastStream(broker)
 
 
@@ -16,6 +19,8 @@ async def connect_to_mongo():
     """Подключение к MongoDB при старте FastStream."""
     await mongo_manager.connect()
     logger.info("Подключение к MongoDB установлено.")
+    """Подключение к chromeDB при старте FastStream."""
+    await chrome.init()
 
 
 @app.on_shutdown

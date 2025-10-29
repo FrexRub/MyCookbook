@@ -11,8 +11,11 @@ from pymongo.errors import (
 )
 
 from consumer.core.config import configure_logging
+from consumer.vectoring.models.chroma import chrome
 from consumer.core.database import MongoManager
 from consumer.llm.agents import ParsingAgent
+from consumer.utils.preparation_docs import recipe_to_metadata
+from consumer.vectoring.models.chroma import RecipeVector
 
 configure_logging(logging.INFO)
 logger = logging.getLogger(__name__)
@@ -73,6 +76,7 @@ async def process_recipe(
                 "chat_id": [chat_id],
             }
 
+            # Добаваем рецепт в MongoDB
             try:
                 result = await recipe_collection.insert_one(recipe_data)
                 logger.info(f"Рецепт добавлен: {result.inserted_id}")
@@ -88,6 +92,12 @@ async def process_recipe(
             except PyMongoError as e:
                 logger.exception(f"Неизвестная ошибка MongoDB: {e}")
                 await bot.send_message(user_id, "Произошла внутренняя ошибка при работе с базой данных.")
+
+            # Преобразовываем рецепт в метаданные для добавления их в Chroma
+            recipe_metadata: RecipeVector = await recipe_to_metadata(recipe_data, result.inserted_id)
+
+            # Добавляем рецепт в Chroma
+            await chrome.add_recipe(recipe_metadata)
 
         msg = "\n".join(msg_parts)
         await bot.send_message(user_id, msg, parse_mode="Markdown")
