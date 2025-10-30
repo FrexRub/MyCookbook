@@ -3,6 +3,7 @@ import logging
 from faststream import FastStream
 
 from consumer.core.config import bot, broker
+from consumer.core.exceptions import ExceptProcessRecipeError
 from consumer.vectoring.models.chroma import chrome
 from consumer.utils.parser import process_recipe
 from consumer.core.database import MongoManager
@@ -31,28 +32,31 @@ async def close_mongo():
 
 
 @broker.subscriber("recipe_processing_queue")
-async def handle_recipe_message(data: dict):
+async def handle_recipe_message(data: dict[str, str | int]):
     """Обработчик сообщений из очереди RabbitMQ."""
-    url = data["url"]
-    user_id = data["user_id"]
-    chat_id = data["chat_id"]
+    url: str = data["url"]
+    user_id: int = data["user_id"]
+    chat_id: int = data["chat_id"]
 
-    await process_recipe(
-        bot=bot,
-        chat_id=chat_id,
-        user_id=user_id,
-        url=url,
-        mongo=mongo_manager,
-    )
+    try:
+        await process_recipe(
+            bot=bot,
+            chat_id=chat_id,
+            user_id=user_id,
+            url=url,
+            mongo=mongo_manager,
+        )
+    except ExceptProcessRecipeError as e:
+        logger.exception(f"Ошибка при обработке рецепта: {e}")
 
 
 if __name__ == "__main__":
-    print("🚀 Запуск FastStream потребителя...")
+    logger.info("🚀 Запуск FastStream потребителя...")
     try:
         asyncio.run(app.run())
     except KeyboardInterrupt:
-        print("Работа потребителя завершена.")
+        logger.info("Работа потребителя завершена.")
     except Exception as e:
-        print(f"Произошла ошибка: {e}")
+        logger.exception(f"Произошла ошибка: {e}")
     finally:
         print("До свидания")

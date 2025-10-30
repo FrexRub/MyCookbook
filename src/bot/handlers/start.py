@@ -133,31 +133,6 @@ async def handle_http_url(message: Message, mongo: MongoManager) -> None:
         )
         await message.answer("📊 Запрос отправлен!")
 
-        # def on_process_done(task: asyncio.Task, msg: Message):
-        #     async def send_message():
-        #         if task.exception():
-        #             error = task.exception()
-        #             await msg.answer(f"Произошла ошибка при обработке: {error}")
-        #             logger.error(f"Произошла ошибка при обработке: {error}")
-        #         else:
-        #             await msg.answer("Рецепт успешно обработан и добавлен в книгу рецептов.")
-        #             logger.info("Рецепт успешно обработан и добавлен в БД.")
-        #
-        #     asyncio.create_task(send_message())
-        #
-        # # Создание задачи
-        # task = asyncio.create_task(
-        #     process_recipe(
-        #         bot=message.bot,
-        #         chat_id=message.chat.id,
-        #         user_id=message.from_user.id,
-        #         url=url,
-        #         mongo=mongo,
-        #     )
-        # )
-        #
-        # task.add_done_callback(lambda t: on_process_done(t, message))
-
 
 @router.message(F.chat.type.in_(["group", "supergroup"]), F.text)
 async def handle_group_message(message: Message) -> None:

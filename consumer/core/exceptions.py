@@ -13,3 +13,15 @@ class ExceptClientResponseError(Exception):
 
 class ExceptTimeoutError(Exception):
     pass
+
+
+class ExceptNormalizeTextError(Exception):
+    pass
+
+
+class ExceptAddChromaError(Exception):
+    pass
+
+
+class ExceptProcessRecipeError(Exception):
+    pass

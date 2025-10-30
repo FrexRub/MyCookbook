@@ -3,6 +3,7 @@ from typing import Any
 import logging
 
 from consumer.core.config import PUNCTUATION_PATTERN, WHITESPACE_PATTERN
+from consumer.core.exceptions import ExceptNormalizeTextError
 from consumer.vectoring.models.chroma import RecipeMetadate, PyObjectId, RecipeVector
 from consumer.core.config import configure_logging
 
@@ -38,11 +39,8 @@ async def recipe_to_metadata(recipe: dict[str, Any], id_recipe: PyObjectId) -> R
     )
     try:
         text_for_vector: str = await normalize_text(text)
-    except ValueError:
-        text_for_vector: str = ""
-        if text:
-            logger.error(f"Ошибка при нормализации текста: {text}")
-        else:
-            logger.error("Пустой текст")
+    except ValueError as e:
+        logger.error(f"Ошибка при нормализации текста: {text}")
+        raise ExceptNormalizeTextError(f"{e}")
 
     return RecipeVector(text=text_for_vector, metadata=metadat)

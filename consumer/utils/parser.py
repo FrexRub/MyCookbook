@@ -11,6 +11,7 @@ from pymongo.errors import (
 )
 
 from consumer.core.config import configure_logging
+from consumer.core.exceptions import ExceptNormalizeTextError, ExceptAddChromaError, ExceptProcessRecipeError
 from consumer.vectoring.models.chroma import chrome
 from consumer.core.database import MongoManager
 from consumer.llm.agents import ParsingAgent
@@ -79,7 +80,7 @@ async def process_recipe(
             # Добаваем рецепт в MongoDB
             try:
                 result = await recipe_collection.insert_one(recipe_data)
-                logger.info(f"Рецепт добавлен: {result.inserted_id}")
+                # logger.info(f"Рецепт добавлен: {result.inserted_id}")
             except DuplicateKeyError:
                 logger.warning("Такой рецепт уже существует в базе данных.")
                 await bot.send_message(user_id, "Такой рецепт уже есть в базе.")
@@ -93,11 +94,29 @@ async def process_recipe(
                 logger.exception(f"Неизвестная ошибка MongoDB: {e}")
                 await bot.send_message(user_id, "Произошла внутренняя ошибка при работе с базой данных.")
 
-            # Преобразовываем рецепт в метаданные для добавления их в Chroma
-            recipe_metadata: RecipeVector = await recipe_to_metadata(recipe_data, result.inserted_id)
+            try:
+                # Преобразовываем рецепт в метаданные для добавления их в Chroma
+                recipe_metadata: RecipeVector = await recipe_to_metadata(recipe_data, result.inserted_id)
+            except ExceptNormalizeTextError as e:
+                logger.error(f"Ошибка при преобразовании рецепта в метаданные: {e}")
+                result_deleted = await recipe_collection.delete_one({"_id": result.inserted_id})
+                if result_deleted.deleted_count == 1:
+                    logger.info("Record deleted from MongoDB successfully")
+                else:
+                    logger.info("Record not found or already deleted")
+                raise ExceptProcessRecipeError(f"Ошибка при преобразовании рецепта в метаданные: {e}")
 
             # Добавляем рецепт в Chroma
-            await chrome.add_recipe(recipe_metadata)
+            try:
+                await chrome.add_recipe(recipe_metadata)
+            except ExceptAddChromaError as e:
+                logger.error(f"Ошибка при векторизации рецепта: {e}")
+                result_deleted = await recipe_collection.delete_one({"_id": result.inserted_id})
+                if result_deleted.deleted_count == 1:
+                    logger.info("Record deleted from MongoDB successfully")
+                else:
+                    logger.info("Record not found or already deleted")
+                raise ExceptProcessRecipeError(f"Ошибка при векторизации рецепта: {e}")
 
         msg = "\n".join(msg_parts)
         await bot.send_message(user_id, msg, parse_mode="Markdown")

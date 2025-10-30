@@ -14,7 +14,7 @@ from pydantic.functional_validators import BeforeValidator
 from typing_extensions import Annotated
 
 from consumer.core.config import configure_logging, COLLECTION_NAME, CHROMA_PATH, setting
-
+from consumer.core.exceptions import ExceptAddChromaError
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
@@ -153,7 +153,7 @@ class ChromaVectorStore:
             logger.info("✅ Рецепт успешно добавлен.")
         except Exception as e:
             logger.exception(f"❌ Ошибка при добавлении рецепта: {e}")
-            raise
+            raise ExceptAddChromaError(f"Ошибка при добавлении рецепта: {e}")
 
 
 chrome = ChromaVectorStore()
