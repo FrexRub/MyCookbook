@@ -50,6 +50,15 @@ async def handle_recipe_message(data: dict[str, str | int]):
         logger.exception(f"Ошибка при обработке рецепта: {e}")
 
 
+@broker.subscriber("recipe_search_queue")
+async def handle_recipe_message(data: dict[str, str | int]):
+    """Обработчик сообщений из очереди RabbitMQ для поиска рецепта"""
+    search_text: str = data["search_text"]
+    user_id: int = data["user_id"]
+    chat_id: int = data["chat_id"]
+    logger.info(f"Старт поиска рецепта по запросу: {search_text}")
+
+
 if __name__ == "__main__":
     logger.info("🚀 Запуск FastStream потребителя...")
     try:

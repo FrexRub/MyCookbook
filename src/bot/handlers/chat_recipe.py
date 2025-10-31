@@ -3,6 +3,8 @@ import logging
 
 from aiogram import Bot, F, Router
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import CallbackQuery, Message
 from aiogram.utils.chat_action import ChatActionSender
 from aiogram.utils.keyboard import (
@@ -13,13 +15,17 @@ from aiogram.utils.keyboard import (
 from bson import ObjectId
 from bson.errors import InvalidId
 
-from src.core.config import configure_logging, setting
+from src.core.config import configure_logging, setting, bot, broker
 from src.core.database import MongoManager
 
 router = Router()
 
 configure_logging(logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class SearchFSM(StatesGroup):
+    content = State()
 
 
 def create_recipe_inline_kb(recipes: list[dict]) -> InlineKeyboardMarkup:
@@ -206,3 +212,54 @@ async def cmd_category(call: CallbackQuery, mongo: MongoManager) -> None:
     async with ChatActionSender(bot=setting.bot, chat_id=call.from_user.id, action="typing"):
         await asyncio.sleep(0)
         await call.message.answer(msg_text, reply_markup=create_recipe_inline_kb(recipes))
+
+
+@router.message(Command("search"))
+async def start_search_recipes(message: Message, state: FSMContext) -> None:
+    """Обработка команды /search"""
+    await state.clear()
+    async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
+        await asyncio.sleep(1)
+        await message.answer("Напишите, что вы хотите найти: ")
+    await state.set_state(SearchFSM.content)
+
+
+@router.message(F.text, SearchFSM.content)
+async def capture_name(message: Message, state: FSMContext):
+    if not message.text.isalpha():
+        async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
+            await asyncio.sleep(1)
+            await message.reply("Напишите вопрос без цифр и специальных символов: ")
+            await state.set_state(SearchFSM.content)
+            return
+
+    await state.update_data(content=message.text)
+    data = await state.get_data()
+    await message.answer(f"Супер! Начинаем искать рецепты по запросу: {data['content']}")
+    await state.clear()
+    await broker.publish(
+        {
+            "search_text": data["content"],
+            "user_id": message.from_user.id,
+            "chat_id": message.chat.id,
+        },
+        queue="recipe_search_queue",
+    )
+
+
+@router.message(Command("help"))
+async def help_command(message: Message):
+    help_text = (
+        "Доступные команды:\n"
+        "/start - Запуск бота\n"
+        "/my_recipes - Список Ваших рецептов\n"
+        "/group_recipes - Список рецептов группы\n"
+        "/search - Поиск по ключевому слову\n"
+        "/help - Помощь по командам"
+    )
+    await message.answer(help_text)
+
+
+@router.message(F.text)
+async def text_message(message: Message):
+    await message.answer(f"Для работы с ботом используйте меню")
