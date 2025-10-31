@@ -164,5 +164,5 @@ cython_debug/
 /serts
 
 # ChromaDB
-*.sqlite3
+chroma.sqlite3
 *.bin
