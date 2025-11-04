@@ -7,6 +7,7 @@ from consumer.core.exceptions import ExceptProcessRecipeError
 from consumer.vectoring.models.chroma import chrome
 from consumer.utils.parser import process_recipe
 from consumer.core.database import MongoManager
+from consumer.utils.search import search_recipe
 
 
 logger = logging.getLogger(__name__)
@@ -51,12 +52,20 @@ async def handle_recipe_message(data: dict[str, str | int]):
 
 
 @broker.subscriber("recipe_search_queue")
-async def handle_recipe_message(data: dict[str, str | int]):
+async def handle_recipe_search(data: dict[str, str | int]):
     """Обработчик сообщений из очереди RabbitMQ для поиска рецепта"""
     search_text: str = data["search_text"]
     user_id: int = data["user_id"]
     chat_id: int = data["chat_id"]
     logger.info(f"Старт поиска рецепта по запросу: {search_text}")
+
+    try:
+        results = await search_recipe(search_text)
+        logger.info(f"Найдено {len(results)} результатов")
+        for result in results:
+            logger.info(f"Рецепт: {result}")
+    except Exception as e:
+        logger.exception(f"Ошибка при поиске рецептов: {e}")
 
 
 if __name__ == "__main__":

@@ -91,10 +91,11 @@ class ChromaVectorStore:
         Raises:
             RuntimeError: Если хранилище не инициализировано
         """
+        logger.info(f"🔍 Поиск похожих документов по запросу: «{query}», top_k={k}")
+
         if not self._store:
             raise RuntimeError("ChromaVectorStore is not initialized.")
 
-        logger.info(f"🔍 Поиск похожих документов по запросу: «{query}», top_k={k}")
         try:
             if with_score:
                 results = await self._store.asimilarity_search_with_score(query=query, k=k)
