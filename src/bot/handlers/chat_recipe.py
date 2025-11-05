@@ -239,7 +239,7 @@ async def capture_name(message: Message, state: FSMContext):
     await state.clear()
     await broker.publish(
         {
-            "search_text": data["content"],
+            "search_text": data["content"].lower(),
             "user_id": message.from_user.id,
             "chat_id": message.chat.id,
         },

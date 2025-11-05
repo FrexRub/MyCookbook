@@ -16,10 +16,58 @@ from consumer.core.exceptions import (
     ExceptClientResponseError,
     ExceptTimeoutError,
 )
-from consumer.llm.llm_states import ParsingState, RecipesList
+from consumer.llm.llm_states import ParsingState, RecipesList, SearchRecipesList
 
 configure_logging(logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class SearchAgent:
+    def __init__(self, model_name: str = "gpt-4o-mini", temperature: float = 0.1):
+        """Инициализация агента"""
+        self.llm = ChatOpenAI(
+            model=model_name,
+            api_key=setting.llm.openrouter_api_key.get_secret_value(),
+            base_url="https://api.aitunnel.ru/v1/",
+            temperature=temperature,
+        )
+
+    async def search_recepts(self, query: str, content: str) -> dict[str, any]:
+        # создаём парсер для списка рецептов
+        parser = JsonOutputParser(pydantic_object=SearchRecipesList)
+
+        prompt = PromptTemplate(
+            input_variables=["query", "content"],
+            partial_variables={"format_instructions": parser.get_format_instructions()},
+            template="""
+                Ты кулинарный блогер, анализирующий текст рецептов.
+                Найди рецепты соответствующик запросу верни их в JSON формате как список.
+                Каждый рецепт должен содержать поля: id, category.
+                Запрос: {query}
+
+                {content}
+            
+                {format_instructions}
+            
+                Только JSON!
+                """,
+        )
+
+        messages = [
+            SystemMessage(content="Ты эксперт по кулинарии."),
+            HumanMessage(content=prompt.format(content=content)),
+        ]
+
+        response = await self.llm.ainvoke(messages)
+
+        try:
+            # parser возвращает словарь, содержащий список рецептов
+            res_json = parser.parse(response.content)
+        except Exception as e:
+            print(f"Ошибка при разборе JSON: {e}")
+            return {"status": f"Ошибка парсинга: {e}"}
+
+        return {"recipes": res_json["recipes"]}
 
 
 class ParsingAgent:

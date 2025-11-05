@@ -76,13 +76,12 @@ class ChromaVectorStore:
             logger.exception(f"❌ Ошибка при инициализации ChromaVectorStore: {e}")
             raise
 
-    async def asimilarity_search(self, query: str, with_score: bool, k: int = 3):
+    async def asimilarity_search(self, query: str, k: int = 3) -> list[dict[str, Any]]:
         """
         Асинхронный метод для поиска похожих документов в базе данных Chroma.
 
         Args:
             query (str): Текстовый запрос для поиска
-            with_score (bool): Включать ли оценку релевантности в результаты
             k (int): Количество возвращаемых результатов
 
         Returns:
@@ -97,13 +96,24 @@ class ChromaVectorStore:
             raise RuntimeError("ChromaVectorStore is not initialized.")
 
         try:
-            if with_score:
-                results = await self._store.asimilarity_search_with_score(query=query, k=k)
-            else:
-                results = await self._store.asimilarity_search(query=query, k=k)
+            results = await self._store.asimilarity_search_with_score(query=query, k=k)
 
-            logger.debug(f"📄 Найдено {len(results)} результатов.")
-            return results
+            logger.info(f"📄 Найдено {len(results)} результатов.")
+
+            rusults_search = list()
+            for doc in results:
+                doc, score = doc
+                logger.info(f"📄 Документ: {doc.page_content}, Оценка: {score}")
+                rusults_search.append(
+                    {
+                        "text": doc.page_content,
+                        "metadata": doc.metadata,
+                        "score": score,
+                    }
+                )
+
+            return rusults_search
+
         except Exception as e:
             logger.exception(f"❌ Ошибка при поиске: {e}")
             raise

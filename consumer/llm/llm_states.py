@@ -3,6 +3,19 @@ from typing import TypedDict
 from pydantic import BaseModel, Field
 
 
+class SearchRecipe(BaseModel):
+    id: str = Field(description="id рецепта")
+    category: str = Field(
+        description="к какому виду блюд относится (например, суп, десерт, основное блюдо, закуска и т.д.)"
+    )
+
+
+class SearchRecipesList(BaseModel):
+    recipes: list[SearchRecipe] = Field(
+        description="список найденных рецептов"
+    )
+
+
 class ParsingRecipe(BaseModel):
     title: str = Field(description="название")
     description: list[str] = Field(
