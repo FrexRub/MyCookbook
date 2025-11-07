@@ -4,6 +4,7 @@ from faststream import FastStream
 
 from consumer.core.config import bot, broker
 from consumer.core.exceptions import ExceptProcessRecipeError
+from consumer.llm.llm_states import SearchRecipesList
 from consumer.vectoring.models.chroma import chrome
 from consumer.utils.parser import process_recipe
 from consumer.core.database import MongoManager
@@ -60,10 +61,10 @@ async def handle_recipe_search(data: dict[str, str | int]):
     logger.info(f"Старт поиска рецепта по запросу: {search_text}")
 
     try:
-        results = await search_recipe(search_text)
-        logger.info(f"Найдено {len(results)} результатов")
-        for result in results:
-            logger.info(f"Рецепт: {result}")
+        results: SearchRecipesList = await search_recipe(search_text)
+        logger.info(f"Найдено результатов: {len(results['recipes'])}")
+        for num, recipe in enumerate(results["recipes"]):
+            logger.info(f"ID {num+1}-ого рецепта: {recipe['id']}")
     except Exception as e:
         logger.exception(f"Ошибка при поиске рецептов: {e}")
 

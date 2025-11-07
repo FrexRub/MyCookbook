@@ -32,10 +32,10 @@ class SearchAgent:
             temperature=temperature,
         )
 
-    async def search_recepts(self, query: str, content: str) -> dict[str, any]:
+    async def search_recepts(self, query: str, content: str) -> SearchRecipesList:
         # создаём парсер для списка рецептов
         parser = JsonOutputParser(pydantic_object=SearchRecipesList)
-
+        logger.info(f"Start search recepts with {query=}")
         prompt = PromptTemplate(
             input_variables=["query", "content"],
             partial_variables={"format_instructions": parser.get_format_instructions()},
@@ -55,7 +55,7 @@ class SearchAgent:
 
         messages = [
             SystemMessage(content="Ты эксперт по кулинарии."),
-            HumanMessage(content=prompt.format(content=content)),
+            HumanMessage(content=prompt.format(content=content, query=query)),
         ]
 
         response = await self.llm.ainvoke(messages)

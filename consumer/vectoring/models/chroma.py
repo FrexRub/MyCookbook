@@ -103,7 +103,6 @@ class ChromaVectorStore:
             rusults_search = list()
             for doc in results:
                 doc, score = doc
-                logger.info(f"📄 Документ: {doc.page_content}, Оценка: {score}")
                 rusults_search.append(
                     {
                         "text": doc.page_content,
